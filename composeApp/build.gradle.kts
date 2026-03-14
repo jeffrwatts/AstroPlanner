@@ -37,7 +37,6 @@ kotlin {
             implementation(libs.play.services.location)
             implementation(libs.sqldelight.android)
             implementation(libs.ktor.client.okhttp)
-            implementation(libs.astronomy)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -57,6 +56,13 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.sqldelight.native)
             implementation(libs.ktor.client.darwin)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+        androidUnitTest.dependencies {
+            implementation(libs.astronomy)
+            implementation(kotlin("test"))
         }
     }
 }
