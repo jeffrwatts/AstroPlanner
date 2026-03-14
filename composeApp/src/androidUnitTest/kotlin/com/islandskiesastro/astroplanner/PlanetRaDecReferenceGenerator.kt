@@ -21,6 +21,7 @@ class PlanetRaDecReferenceGenerator {
     private val epoch2Ms = 1751630400000L
 
     private val planets = listOf(
+        "moon"    to Body.Moon,
         "mercury" to Body.Mercury,
         "venus"   to Body.Venus,
         "mars"    to Body.Mars,
@@ -43,8 +44,9 @@ class PlanetRaDecReferenceGenerator {
                 val eq = equator(body, time, observer, EquatorEpoch.OfDate, Aberration.Corrected)
                 val ra  = eq.ra * 15.0   // hours → degrees (matches AstronomyService convention)
                 val dec = eq.dec
-                // Also run Schlyter to see the diff
-                val (sRa, sDec) = AstronomyService.getPlanetRaDecForD(id, d)
+                // Also run Schlyter/commonMain to see the diff
+                val (sRa, sDec) = if (id == "moon") AstronomyService.moonRaDecForD(d)
+                                  else AstronomyService.getPlanetRaDecForD(id, d)
                 val dRa  = ra  - sRa
                 val dDec = dec - sDec
                 println(

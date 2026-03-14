@@ -481,6 +481,108 @@ object AstronomyService {
         mDeg = norm360(142.5905 + 0.011725806 * d)
     )
 
+    // ── Moon ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Compute the Moon's geocentric equatorial coordinates using Schlyter's
+     * truncated lunar theory (~1–2° accuracy).
+     *
+     * The Moon's orbit is already geocentric (it orbits Earth), so there is no
+     * heliocentric-to-geocentric conversion step. The pipeline is:
+     *   1. Evaluate Keplerian orbital elements at epoch d.
+     *   2. Solve Kepler's equation → eccentric anomaly E.
+     *   3. Compute geocentric ecliptic rectangular (xh, yh, zh).
+     *   4. Extract ecliptic longitude/latitude.
+     *   5. Apply 12 longitude and 5 latitude perturbation terms driven by the
+     *      Sun–Moon geometry (elongation D, argument of latitude F, etc.).
+     *   6. Rebuild rectangular from perturbed lon/lat.
+     *   7. Rotate by obliquity ε → equatorial → RA/Dec.
+     *
+     * Key perturbation terms:
+     *   - Evection (−1.274° × sin(Mm − 2D))   — largest, due to solar gravity
+     *   - Variation (+0.658° × sin(2D))          — Sun pulling Moon toward elongation
+     *   - Yearly equation (−0.186° × sin(Ms))   — Earth's elliptical orbit effect
+     *
+     * @param d Days from J2000.0.
+     * @return Pair(ra, dec) in degrees.
+     */
+    internal fun moonRaDecForD(d: Double): Pair<Double, Double> {
+        // Schlyter's Moon orbital elements are referenced to "Jan 0.0 2000" (JD 2451543.5),
+        // but d is measured from J2000.0 (JD 2451545.0) — a 1.5-day offset.
+        // At the Moon's rate of 13.065°/day, ignoring this causes ~19.6° mean-longitude error.
+        val ds = d + 1.5
+
+        // Orbital elements
+        val N  = norm360(125.1228 - 0.0529538083 * ds)   // longitude of ascending node
+        val i  = 5.1454                                   // inclination (degrees, nearly constant)
+        val w  = norm360(318.0634 + 0.1643573223 * ds)   // argument of perigee
+        val a  = 60.2666                                  // semi-major axis (Earth radii)
+        val e  = 0.054900                                 // eccentricity (nearly constant)
+        val Mm = norm360(115.3654 + 13.0649929509 * ds)  // mean anomaly
+
+        // Solve Kepler's equation → eccentric anomaly
+        val E  = solveKepler(Mm, e)
+        val xv = a * (cos(E) - e)
+        val yv = a * sqrt(1.0 - e * e) * sin(E)
+        val v  = atan2(yv, xv).toDeg()  // true anomaly
+        val r  = sqrt(xv * xv + yv * yv)
+
+        // Geocentric ecliptic rectangular (same rotation as heliocentricXYZ but origin = Earth)
+        val nR  = N.toRad();  val iR  = i.toRad();  val vwR = (v + w).toRad()
+        val xh  = r * (cos(nR) * cos(vwR) - sin(nR) * sin(vwR) * cos(iR))
+        val yh  = r * (sin(nR) * cos(vwR) + cos(nR) * sin(vwR) * cos(iR))
+        val zh  = r * sin(vwR) * sin(iR)
+
+        // Ecliptic longitude and latitude before perturbations
+        val lon = atan2(yh, xh).toDeg()
+        val lat = atan2(zh, sqrt(xh * xh + yh * yh)).toDeg()
+
+        // Solar quantities needed for perturbation terms
+        val Ms = norm360(356.0470 + 0.9856002585 * ds)          // Sun's mean anomaly
+        val Ls = norm360(Ms + 282.9404 + 4.70935e-5 * ds)       // Sun's mean longitude
+        val Lm = norm360(Mm + w + N)                             // Moon's mean longitude
+        val D  = norm360(Lm - Ls)                                // Moon's mean elongation
+        val F  = norm360(Lm - N)                                 // Moon's argument of latitude
+
+        // Longitude perturbations (degrees)
+        val dlon = (-1.274 * sin((Mm - 2 * D      ).toRad())    // Evection
+                  +  0.658 * sin((     2 * D       ).toRad())    // Variation
+                  -  0.186 * sin( Ms                .toRad())    // Yearly equation
+                  -  0.059 * sin((2 * Mm - 2 * D   ).toRad())
+                  -  0.057 * sin((Mm - 2 * D + Ms  ).toRad())
+                  +  0.053 * sin((Mm + 2 * D       ).toRad())
+                  +  0.046 * sin((     2 * D - Ms  ).toRad())
+                  +  0.041 * sin((Mm -       Ms    ).toRad())
+                  -  0.035 * sin( D                 .toRad())    // Parallactic equation
+                  -  0.031 * sin((Mm +       Ms    ).toRad())
+                  -  0.015 * sin((2 * F - 2 * D    ).toRad())
+                  +  0.011 * sin((Mm - 4 * D       ).toRad()))
+
+        // Latitude perturbations (degrees)
+        val dlat = (-0.173 * sin((F  - 2 * D        ).toRad())
+                  -  0.055 * sin((Mm - F  - 2 * D   ).toRad())
+                  -  0.046 * sin((Mm + F  - 2 * D   ).toRad())
+                  +  0.033 * sin((F  + 2 * D        ).toRad())
+                  +  0.017 * sin((2 * Mm + F        ).toRad()))
+
+        // Apply perturbations, rebuild rectangular, rotate to equatorial
+        val lonP = (lon + dlon).toRad()
+        val latP = (lat + dlat).toRad()
+        val xp   = r * cos(latP) * cos(lonP)
+        val yp   = r * cos(latP) * sin(lonP)
+        val zp   = r * sin(latP)
+
+        val eps  = (23.4393 - 3.563e-7 * ds).toRad()
+        val xeq  = xp
+        val yeq  = yp * cos(eps) - zp * sin(eps)
+        val zeq  = yp * sin(eps) + zp * cos(eps)
+
+        return Pair(
+            norm360(atan2(yeq, xeq).toDeg()),
+            atan2(zeq, sqrt(xeq * xeq + yeq * yeq)).toDeg()
+        )
+    }
+
     /** Neptune — outermost planet, 165-year orbit. No significant perturbations at this precision. */
     private fun neptune(d: Double) = heliocentricXYZ(
         N    = norm360(131.7806 + 3.0173e-5 * d),

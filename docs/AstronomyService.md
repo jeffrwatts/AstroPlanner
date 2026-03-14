@@ -15,8 +15,9 @@ The service computes three things the Sky Planner needs:
 | `getAltAzm` | Where in the sky is this object *right now*? |
 | `getMeridianTransit` | When does it cross the meridian (its highest point)? |
 | `getPlanetRaDec` | Where are the planets in the sky (RA/Dec)? |
+| `moonRaDecForD` | Where is the Moon (RA/Dec) at a specific epoch? |
 
-Deep-sky objects (nebulae, star clusters, galaxies) have fixed RA/Dec stored in the database, so only `getAltAzm` is needed for those. Planets move, so `getPlanetRaDec` is called first to get their current position, and that result is then fed into `getAltAzm`.
+Deep-sky objects (nebulae, star clusters, galaxies) have fixed RA/Dec stored in the database, so only `getAltAzm` is needed for those. Planets and the Moon move, so `getPlanetRaDec` (or the platform-specific `moonRaDec()`) is called first to get their current position, and that result is then fed into `getAltAzm`.
 
 ---
 
@@ -74,13 +75,52 @@ If the object just transited, the result will be approximately 23h 56m from now 
 
 ### `getPlanetRaDec(planetObjectId) → Pair<Double, Double>`
 
-Returns the current geocentric Right Ascension and Declination (both in degrees) for one of the seven planets: Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune.
+Returns the current geocentric Right Ascension and Declination (both in degrees) for one of the seven planets: Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune. Also accepts `"moon"`, which delegates to the platform-specific `moonRaDec()`.
 
 The `planetObjectId` strings match the database: `"mercury"`, `"venus"`, `"mars"`, `"jupiter"`, `"saturn"`, `"uranus"`, `"neptune"`. Returns `(0.0, 0.0)` for unrecognised input.
 
 **Accuracy:** ~1° for inner planets, ~0.5° for outer planets. Sufficient for a visual sky planner; not suitable for telescope pointing.
 
 See the pipeline description in [Planet Position Pipeline](#planet-position-pipeline) below.
+
+---
+
+### `moonRaDecForD(d) → Pair<Double, Double>` *(internal)*
+
+Computes the Moon's geocentric RA and Declination in degrees using Schlyter's truncated lunar theory. Exposed as `internal` so unit tests can pass a fixed `d` value.
+
+**Pipeline:**
+
+```
+Keplerian orbital elements at epoch ds = d + 1.5
+        ↓
+Solve Kepler's equation → eccentric anomaly E
+        ↓
+Geocentric ecliptic rectangular (xh, yh, zh)  [Earth radii, origin = Earth]
+        ↓
+Ecliptic longitude/latitude (lon, lat)
+        ↓
+Apply 12 longitude + 5 latitude perturbation terms
+  (Evection, Variation, Yearly Equation, + smaller terms)
+        ↓
+Rebuild rectangular from perturbed (lon+dlon, lat+dlat)
+        ↓
+Rotate by obliquity ε → equatorial → RA/Dec
+```
+
+**Key perturbation terms:**
+
+| Term | Amplitude | Cause |
+|---|---|---|
+| Evection | ±1.274° | Solar gravity distorting Moon's orbit |
+| Variation | ±0.658° | Moon pulled toward/away from Sun at quadrature |
+| Yearly Equation | ±0.186° | Earth's elliptical orbit varying the solar pull |
+
+**Epoch note:** Schlyter's Moon orbital element values are calibrated to "Jan 0.0 2000" (JD 2451543.5), which is 1.5 days before J2000.0 (JD 2451545.0) — the epoch this codebase uses for `d`. The function corrects for this internally via `ds = d + 1.5`. Without this correction the Moon's position would be ~19.6° off in mean longitude.
+
+**Accuracy:** ~1° typical, ±2° worst-case.
+
+On Android, `moonRaDec()` uses the cosinekitty/astronomy library (sub-arcminute accuracy). On iOS it calls `moonRaDecForD` with the current `d`.
 
 ---
 
@@ -216,6 +256,8 @@ zeq = yg·sin(ε) + zg·cos(ε)
 | Object type | Altitude/Azimuth accuracy | Notes |
 |---|---|---|
 | Deep-sky objects | Exact (limited only by floating point) | RA/Dec from catalog, no approximation |
+| Moon (iOS) | ~1–2° | Schlyter truncated lunar theory |
+| Moon (Android) | Sub-arcminute | cosinekitty/astronomy library |
 | Inner planets (Mercury, Venus, Mars) | ~1–2° | Schlyter algorithm limit |
 | Outer planets (Jupiter–Neptune) | ~0.5° | Perturbations reduce outer-planet error significantly |
 
