@@ -38,6 +38,9 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+            implementation(compose.components.resources)
+            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.0")
         }
     }
 }
