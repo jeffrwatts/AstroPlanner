@@ -9,7 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun UpdateScreen() {
+fun UpdateScreen(location: LocationData?, hasLocationPermission: Boolean) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text("Update", style = MaterialTheme.typography.headlineMedium)
     }

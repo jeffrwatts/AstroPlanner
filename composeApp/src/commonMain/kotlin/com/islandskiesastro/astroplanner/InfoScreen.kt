@@ -7,23 +7,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 @Composable
-fun InfoScreen(locationService: LocationService, hasLocationPermission: Boolean) {
-    val location by locationService.location.collectAsState()
-
-    DisposableEffect(hasLocationPermission) {
-        if (hasLocationPermission) locationService.startUpdates()
-        onDispose { locationService.stopUpdates() }
-    }
-
+fun InfoScreen(location: LocationData?, hasLocationPermission: Boolean) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -33,10 +23,9 @@ fun InfoScreen(locationService: LocationService, hasLocationPermission: Boolean)
             !hasLocationPermission -> Text("Location permission required")
             location == null -> Text("Acquiring location...")
             else -> {
-                val loc = location!!
-                Text("Latitude:  ${loc.latitude.format(6)}°",  style = MaterialTheme.typography.bodyLarge)
-                Text("Longitude: ${loc.longitude.format(6)}°", style = MaterialTheme.typography.bodyLarge)
-                Text("Altitude:  ${loc.altitude.format(1)} m", style = MaterialTheme.typography.bodyLarge)
+                Text("Latitude:  ${location.latitude.format(6)}°",  style = MaterialTheme.typography.bodyLarge)
+                Text("Longitude: ${location.longitude.format(6)}°", style = MaterialTheme.typography.bodyLarge)
+                Text("Altitude:  ${location.altitude.format(1)} m", style = MaterialTheme.typography.bodyLarge)
             }
         }
     }

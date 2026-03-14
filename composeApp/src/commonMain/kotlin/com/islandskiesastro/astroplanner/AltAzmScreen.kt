@@ -9,7 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun AltAzmScreen() {
+fun AltAzmScreen(location: LocationData?, hasLocationPermission: Boolean) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text("Alt/Azm Tool", style = MaterialTheme.typography.headlineMedium)
     }

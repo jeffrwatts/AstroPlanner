@@ -9,7 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun SkyPlannerScreen() {
+fun SkyPlannerScreen(location: LocationData?, hasLocationPermission: Boolean) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text("Sky Planner", style = MaterialTheme.typography.headlineMedium)
     }
