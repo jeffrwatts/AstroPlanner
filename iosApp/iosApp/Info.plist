@@ -18,6 +18,8 @@
     <string>1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>AstroPlanner uses your location to calculate celestial object positions and plan your astrophotography sessions.</string>
     <key>UILaunchScreen</key>
     <dict/>
     <key>UISupportedInterfaceOrientations</key>

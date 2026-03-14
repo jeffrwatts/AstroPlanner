@@ -6,9 +6,11 @@ android-minSdk = "24"
 android-targetSdk = "35"
 android-compileSdk = "35"
 androidx-activityCompose = "1.9.2"
+play-services-location = "21.3.0"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
+play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "play-services-location" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
