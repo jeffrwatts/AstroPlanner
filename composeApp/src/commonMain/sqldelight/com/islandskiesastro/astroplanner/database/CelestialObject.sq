@@ -1,0 +1,24 @@
+CREATE TABLE celestialObject (
+    id              INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    displayName     TEXT    NOT NULL,
+    objectId        TEXT    NOT NULL,
+    ra              REAL    NOT NULL,
+    dec             REAL    NOT NULL,
+    type            TEXT    NOT NULL,
+    subType         TEXT,
+    constellation   TEXT,
+    recommended     INTEGER NOT NULL DEFAULT 1
+);
+
+selectAll:
+SELECT * FROM celestialObject ORDER BY id;
+
+selectRecommended:
+SELECT * FROM celestialObject WHERE recommended = 1 ORDER BY id;
+
+insert:
+INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAll:
+DELETE FROM celestialObject;

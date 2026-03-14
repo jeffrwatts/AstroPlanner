@@ -32,7 +32,11 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(locationService: LocationService, hasLocationPermission: Boolean) {
+fun MainScreen(
+    locationService: LocationService,
+    hasLocationPermission: Boolean,
+    repository: CelestialObjectRepository
+) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val location by locationService.location.collectAsState()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -78,10 +82,10 @@ fun MainScreen(locationService: LocationService, hasLocationPermission: Boolean)
         ) { innerPadding ->
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 when (Screen.all[selectedIndex]) {
-                    Screen.SkyPlanner -> SkyPlannerScreen(location, hasLocationPermission)
+                    Screen.SkyPlanner -> SkyPlannerScreen(location, hasLocationPermission, repository)
                     Screen.Info       -> InfoScreen(location, hasLocationPermission)
                     Screen.AltAzm     -> AltAzmScreen(location, hasLocationPermission)
-                    Screen.Update     -> UpdateScreen(location, hasLocationPermission)
+                    Screen.Update     -> UpdateScreen(repository)
                     Screen.Settings   -> SettingsScreen(location, hasLocationPermission)
                 }
             }

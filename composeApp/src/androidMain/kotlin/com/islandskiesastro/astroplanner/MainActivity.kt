@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
     private lateinit var locationService: LocationService
+    private lateinit var repository: CelestialObjectRepository
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -24,6 +25,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         locationService = LocationService(applicationContext)
+        val driverFactory = DatabaseDriverFactory(applicationContext)
+        repository = CelestialObjectRepository(driverFactory)
 
         if (hasLocationPermission()) {
             showApp(true)
@@ -43,7 +46,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showApp(hasPermission: Boolean) {
         setContent {
-            App(locationService, hasPermission)
+            App(locationService, hasPermission, repository)
         }
     }
 }

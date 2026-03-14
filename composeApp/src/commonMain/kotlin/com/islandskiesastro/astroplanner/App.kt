@@ -5,8 +5,12 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 
 @Composable
-fun App(locationService: LocationService, hasLocationPermission: Boolean) {
+fun App(
+    locationService: LocationService,
+    hasLocationPermission: Boolean,
+    repository: CelestialObjectRepository
+) {
     MaterialTheme(colorScheme = darkColorScheme()) {
-        MainScreen(locationService, hasLocationPermission)
+        MainScreen(locationService, hasLocationPermission, repository)
     }
 }

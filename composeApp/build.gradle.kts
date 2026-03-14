@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.sqldelight)
+    alias(libs.plugins.kotlinx.serialization)
 }
 
 kotlin {
@@ -24,6 +26,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            linkerOpts("-lsqlite3")
         }
     }
 
@@ -32,6 +35,9 @@ kotlin {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.play.services.location)
+            implementation(libs.sqldelight.android)
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.astronomy)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -42,6 +48,15 @@ kotlin {
             implementation(compose.components.resources)
             implementation("org.jetbrains.compose.material:material-icons-extended:1.7.0")
             implementation(libs.kotlinx.datetime)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.content.negotiation)
+            implementation(libs.ktor.serialization.json)
+            implementation(libs.kotlinx.serialization.json)
+        }
+        iosMain.dependencies {
+            implementation(libs.sqldelight.native)
+            implementation(libs.ktor.client.darwin)
         }
     }
 }
@@ -67,5 +82,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+sqldelight {
+    databases {
+        create("AstroDatabase") {
+            packageName.set("com.islandskiesastro.astroplanner.database")
+        }
     }
 }
