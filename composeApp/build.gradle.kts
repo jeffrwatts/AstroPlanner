@@ -37,6 +37,7 @@ kotlin {
             implementation(libs.play.services.location)
             implementation(libs.sqldelight.android)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.astronomy)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
