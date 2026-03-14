@@ -34,7 +34,7 @@ class CelestialObjectRepository(driverFactory: DatabaseDriverFactory) {
     }
 
     private val planets = listOf(
-        "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune"
+        "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune"
     )
 
     fun getAllObjects(): List<CelestialObject> =
