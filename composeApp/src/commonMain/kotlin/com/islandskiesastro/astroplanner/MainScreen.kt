@@ -1,61 +1,82 @@
 package com.islandskiesastro.astroplanner
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(locationService: LocationService, hasLocationPermission: Boolean) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val location by locationService.location.collectAsState()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     DisposableEffect(hasLocationPermission) {
         if (hasLocationPermission) locationService.startUpdates()
         onDispose { locationService.stopUpdates() }
     }
 
-    Scaffold { innerPadding ->
-        Row(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            NavigationRail {
-                Column(
-                    modifier = Modifier.fillMaxHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
-                ) {
-                    Screen.all.forEachIndexed { index, screen ->
-                        NavigationRailItem(
-                            selected = selectedIndex == index,
-                            onClick = { selectedIndex = index },
-                            icon = { Icon(screen.icon, contentDescription = screen.title) },
-                            label = { Text(screen.title) }
-                        )
-                    }
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Spacer(Modifier.height(16.dp))
+                Screen.all.forEachIndexed { index, screen ->
+                    NavigationDrawerItem(
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = { Text(screen.title) },
+                        selected = selectedIndex == index,
+                        onClick = {
+                            selectedIndex = index
+                            scope.launch { drawerState.close() }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
                 }
+                Spacer(Modifier.height(16.dp))
             }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            ) {
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(Screen.all[selectedIndex].title) },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Open menu")
+                        }
+                    }
+                )
+            }
+        ) { innerPadding ->
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 when (Screen.all[selectedIndex]) {
                     Screen.SkyPlanner -> SkyPlannerScreen(location, hasLocationPermission)
                     Screen.Info       -> InfoScreen(location, hasLocationPermission)
