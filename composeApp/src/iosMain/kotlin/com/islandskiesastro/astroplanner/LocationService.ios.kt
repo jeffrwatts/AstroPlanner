@@ -38,7 +38,8 @@ actual class LocationService : NSObject(), CLLocationManagerDelegateProtocol {
         _location.value = LocationData(
             latitude = lat,
             longitude = lon,
-            altitude = clLocation.altitude
+            altitude = clLocation.altitude,
+            accuracy = clLocation.horizontalAccuracy
         )
     }
 }

@@ -23,7 +23,8 @@ actual class LocationService(context: Context) {
                 _location.value = LocationData(
                     latitude = loc.latitude,
                     longitude = loc.longitude,
-                    altitude = loc.altitude
+                    altitude = loc.altitude,
+                    accuracy = loc.accuracy.toDouble()
                 )
             }
         }
