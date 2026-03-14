@@ -1,0 +1,25 @@
+CREATE TABLE celestialObjectImage (
+    objectId  TEXT NOT NULL PRIMARY KEY,
+    url       TEXT NOT NULL,
+    fullPath  TEXT,
+    thumbPath TEXT,
+    thumbX    INTEGER,
+    thumbY    INTEGER,
+    thumbDim  INTEGER
+);
+
+selectAll:
+SELECT * FROM celestialObjectImage;
+
+selectByObjectId:
+SELECT * FROM celestialObjectImage WHERE objectId = ?;
+
+insert:
+INSERT OR REPLACE INTO celestialObjectImage (objectId, url, fullPath, thumbPath, thumbX, thumbY, thumbDim)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updatePaths:
+UPDATE celestialObjectImage SET fullPath = ?, thumbPath = ? WHERE objectId = ?;
+
+deleteAll:
+DELETE FROM celestialObjectImage;

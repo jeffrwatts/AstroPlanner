@@ -22,9 +22,14 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun UpdateScreen(repository: CelestialObjectRepository) {
-    var isRunning by remember { mutableStateOf(false) }
-    var statusText by remember { mutableStateOf("") }
-    var isError by remember { mutableStateOf(false) }
+    var dsoRunning by remember { mutableStateOf(false) }
+    var dsoStatus by remember { mutableStateOf("") }
+    var dsoError by remember { mutableStateOf(false) }
+
+    var imgRunning by remember { mutableStateOf(false) }
+    var imgStatus by remember { mutableStateOf("") }
+    var imgError by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
 
     Column(
@@ -34,27 +39,56 @@ fun UpdateScreen(repository: CelestialObjectRepository) {
     ) {
         Button(
             onClick = {
-                isRunning = true
-                isError = false
+                dsoRunning = true
+                dsoError = false
                 scope.launch {
                     repository.updateCatalog { status ->
-                        statusText = status
-                        isError = status.startsWith("DSO data loading failed")
+                        dsoStatus = status
+                        dsoError = status.startsWith("DSO data loading failed")
                     }
-                    isRunning = false
+                    dsoRunning = false
                 }
             },
-            enabled = !isRunning
+            enabled = !dsoRunning
         ) {
             Text("Update DSO")
         }
 
-        if (statusText.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
+        if (dsoStatus.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
             Text(
-                text = "Status: $statusText",
+                text = "DSO: $dsoStatus",
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isError) MaterialTheme.colorScheme.error
+                color = if (dsoError) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                imgRunning = true
+                imgError = false
+                scope.launch {
+                    repository.updateImages { status ->
+                        imgStatus = status
+                        imgError = status.startsWith("Image update failed")
+                    }
+                    imgRunning = false
+                }
+            },
+            enabled = !imgRunning
+        ) {
+            Text("Update Images")
+        }
+
+        if (imgStatus.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Images: $imgStatus",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (imgError) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurface
             )
         }

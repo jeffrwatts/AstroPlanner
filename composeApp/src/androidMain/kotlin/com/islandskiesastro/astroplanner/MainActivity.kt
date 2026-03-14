@@ -26,7 +26,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         locationService = LocationService(applicationContext)
         val driverFactory = DatabaseDriverFactory(applicationContext)
-        repository = CelestialObjectRepository(driverFactory)
+        val imageStorage = ImageStorage(applicationContext)
+        repository = CelestialObjectRepository(driverFactory, imageStorage)
 
         if (hasLocationPermission()) {
             showApp(true)

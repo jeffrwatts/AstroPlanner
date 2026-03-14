@@ -5,6 +5,7 @@ import com.islandskiesastro.astroplanner.database.CelestialObject as DbRow
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
@@ -23,9 +24,22 @@ data class DsoResponse(
     val recommended: Boolean
 )
 
-class CelestialObjectRepository(driverFactory: DatabaseDriverFactory) {
+@Serializable
+data class ImageResponse(
+    val objectId: String,
+    val url: String,
+    val thumbX: Int? = null,
+    val thumbY: Int? = null,
+    val thumbDim: Int? = null
+)
+
+class CelestialObjectRepository(
+    driverFactory: DatabaseDriverFactory,
+    private val imageStorage: ImageStorage
+) {
     private val db = AstroDatabase(driverFactory.createDriver())
     private val queries = db.celestialObjectQueries
+    private val imageQueries = db.celestialObjectImageQueries
     private val json = Json { ignoreUnknownKeys = true }
     private val client = HttpClient {
         install(ContentNegotiation) {
@@ -42,6 +56,19 @@ class CelestialObjectRepository(driverFactory: DatabaseDriverFactory) {
 
     fun getRecommendedObjects(): List<CelestialObject> =
         queries.selectRecommended().executeAsList().map { it.toDomain() }
+
+    fun getImagesMap(): Map<String, CelestialObjectImage> =
+        imageQueries.selectAll().executeAsList().associate { row ->
+            row.objectId to CelestialObjectImage(
+                objectId = row.objectId,
+                url = row.url,
+                fullPath = row.fullPath,
+                thumbPath = row.thumbPath,
+                thumbX = row.thumbX?.toInt(),
+                thumbY = row.thumbY?.toInt(),
+                thumbDim = row.thumbDim?.toInt()
+            )
+        }
 
     suspend fun updateCatalog(onStatus: (String) -> Unit) {
         onStatus("Inserting planets...")
@@ -78,6 +105,48 @@ class CelestialObjectRepository(driverFactory: DatabaseDriverFactory) {
             }
         } catch (e: Exception) {
             onStatus("DSO data loading failed: ${e.message}")
+        }
+    }
+
+    suspend fun updateImages(onStatus: (String) -> Unit) {
+        try {
+            onStatus("Fetching image list...")
+            imageQueries.deleteAll()
+            val responseText = client.get(Config.IMAGES_URL).bodyAsText()
+            val imageList: List<ImageResponse> = json.decodeFromString(responseText)
+            onStatus("Downloading ${imageList.size} images...")
+
+            imageList.forEach { img ->
+                imageQueries.insert(img.objectId, img.url, null, null,
+                    img.thumbX?.toLong(), img.thumbY?.toLong(), img.thumbDim?.toLong())
+            }
+
+            imageList.forEachIndexed { index, img ->
+                try {
+                    onStatus("Downloading ${index + 1}/${imageList.size}: ${img.objectId}")
+                    val bytes = client.get(img.url).bodyAsBytes()
+
+                    val fullFilename = "${img.objectId}_full.jpg"
+                    imageStorage.write(fullFilename, bytes)
+                    val fullPath = "${imageStorage.getDir()}/$fullFilename"
+
+                    val thumbFilename = "${img.objectId}_thumb.jpg"
+                    val thumbBytes = if (img.thumbX != null && img.thumbY != null && img.thumbDim != null) {
+                        cropImageBytes(bytes, img.thumbX, img.thumbY, img.thumbDim)
+                    } else {
+                        bytes
+                    }
+                    imageStorage.write(thumbFilename, thumbBytes)
+                    val thumbPath = "${imageStorage.getDir()}/$thumbFilename"
+
+                    imageQueries.updatePaths(fullPath, thumbPath, img.objectId)
+                } catch (e: Exception) {
+                    onStatus("Failed: ${img.objectId} — ${e.message}")
+                }
+            }
+            onStatus("Images updated successfully (${imageList.size} objects)")
+        } catch (e: Exception) {
+            onStatus("Image update failed: ${e.message}")
         }
     }
 

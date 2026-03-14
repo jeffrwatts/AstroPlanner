@@ -1,0 +1,9 @@
+CREATE TABLE celestialObjectImage (
+    objectId  TEXT NOT NULL PRIMARY KEY,
+    url       TEXT NOT NULL,
+    fullPath  TEXT,
+    thumbPath TEXT,
+    thumbX    INTEGER,
+    thumbY    INTEGER,
+    thumbDim  INTEGER
+);

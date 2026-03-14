@@ -1,5 +1,6 @@
 package com.islandskiesastro.astroplanner
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,11 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -26,10 +31,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import okio.Path.Companion.toPath
 import kotlin.math.abs
 
-private data class SkyObject(
+internal data class SkyObject(
     val obj: CelestialObject,
     val altitude: Double,
     val azimuth: Double,
@@ -45,7 +53,9 @@ fun SkyPlannerScreen(
 ) {
     var showRecommendedOnly by remember { mutableStateOf(true) }
     var skyObjects by remember { mutableStateOf<List<SkyObject>>(emptyList()) }
+    var imagesMap by remember { mutableStateOf<Map<String, CelestialObjectImage>>(emptyMap()) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var selectedObject by remember { mutableStateOf<Pair<SkyObject, CelestialObjectImage?>?>(null) }
 
     fun loadObjects() {
         val objects = if (showRecommendedOnly) repository.getRecommendedObjects()
@@ -64,9 +74,20 @@ fun SkyPlannerScreen(
             val transit = AstronomyService.getMeridianTransit(ra, lon, lat)
             SkyObject(obj.copy(ra = ra, dec = dec), altAzm.altitude, altAzm.azimuth, transit)
         }.sortedByDescending { it.altitude }
+
+        imagesMap = repository.getImagesMap()
     }
 
     LaunchedEffect(showRecommendedOnly) { loadObjects() }
+
+    if (selectedObject != null) {
+        DetailScreen(
+            skyObj = selectedObject!!.first,
+            image = selectedObject!!.second,
+            onBack = { selectedObject = null }
+        )
+        return
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -104,7 +125,14 @@ fun SkyPlannerScreen(
             ) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(skyObjects) { skyObj ->
-                        SkyObjectItem(skyObj)
+                        val image = imagesMap[skyObj.obj.objectId]
+                        SkyObjectItem(
+                            skyObj = skyObj,
+                            thumbPath = image?.thumbPath,
+                            onClick = {
+                                selectedObject = Pair(skyObj, image)
+                            }
+                        )
                         HorizontalDivider()
                     }
                 }
@@ -114,29 +142,56 @@ fun SkyPlannerScreen(
 }
 
 @Composable
-private fun SkyObjectItem(skyObj: SkyObject) {
+private fun SkyObjectItem(
+    skyObj: SkyObject,
+    thumbPath: String?,
+    onClick: () -> Unit
+) {
     val alpha = if (skyObj.altitude < 15.0) 0.4f else 1.0f
-    Column(
+
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .alpha(alpha)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(skyObj.obj.displayName, style = MaterialTheme.typography.bodyLarge)
-        Text(
-            skyObj.obj.objectId,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            "Alt: ${skyObj.altitude.toDegreesMinutes()}  Azm: ${skyObj.azimuth.toDegreesMinutes()}",
-            style = MaterialTheme.typography.bodySmall
-        )
-        Text(
-            "Transit: ${skyObj.transit}",
-            style = MaterialTheme.typography.bodySmall
-        )
+        if (thumbPath != null) {
+            AsyncImage(
+                model = thumbPath.toPath(),
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Icon(
+                Icons.Default.Star,
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(Modifier.size(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(skyObj.obj.displayName, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                skyObj.obj.objectId,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "Alt: ${skyObj.altitude.toDegreesMinutes()}  Azm: ${skyObj.azimuth.toDegreesMinutes()}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                "Transit: ${skyObj.transit}",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 

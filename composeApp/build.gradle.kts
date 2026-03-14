@@ -53,6 +53,7 @@ kotlin {
             implementation(libs.ktor.content.negotiation)
             implementation(libs.ktor.serialization.json)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.coil.compose)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native)
@@ -96,6 +97,7 @@ sqldelight {
     databases {
         create("AstroDatabase") {
             packageName.set("com.islandskiesastro.astroplanner.database")
+            version = 2
         }
     }
 }
