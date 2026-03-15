@@ -922,6 +922,28 @@ object AstronomyService {
         return "$dow ${ldt.monthNumber}/${ldt.dayOfMonth}/${ldt.year % 100}"
     }
 
+    // ── Polaris / polar alignment ─────────────────────────────────────────────
+
+    /**
+     * Returns the Local Hour Angle of Polaris in degrees [0, 360), which determines
+     * its rotational position on the polar circle around the Celestial North Pole.
+     *
+     * Polaris (α UMi, J2000 RA = 37.954542°) is ~0.74° from the NCP. As the Earth
+     * rotates, Polaris traces a small circle around the pole once per sidereal day.
+     * The LHA drives the CNP Clock display: LHA = 0° puts Polaris at the top (upper
+     * culmination, toward the zenith), and it moves counterclockwise as LHA increases.
+     *
+     * @param lon     Observer's longitude in degrees (+E, −W).
+     * @param epochMs Unix epoch milliseconds (from Clock.System.now().toEpochMilliseconds()).
+     * @return LHA of Polaris in degrees [0, 360).
+     */
+    fun getPolarisHourAngle(lon: Double, epochMs: Long): Double {
+        val jd   = jdFromMs(epochMs)
+        val gmst = gmstDeg(jd)
+        val lst  = norm360(gmst + lon)
+        return norm360(lst - 37.954542)   // Polaris RA (J2000): 2h 31m 49.09s
+    }
+
     // ── Moon rise / set ────────────────────────────────────────────────────────
 
     /**
