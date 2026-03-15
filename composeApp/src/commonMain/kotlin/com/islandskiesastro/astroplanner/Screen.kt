@@ -12,7 +12,7 @@ sealed class Screen(
     val title: String,
     val icon: ImageVector
 ) {
-    object SkyPlanner : Screen("Sky Planner", Icons.Default.Star)
+    object SkyPlanner : Screen("Astro Planner", Icons.Default.Star)
     object Info       : Screen("Info",         Icons.Default.MyLocation)
     object AltAzm     : Screen("Alt/Azm Tool", Icons.Default.Explore)
     object Update     : Screen("Update",        Icons.Default.Refresh)
