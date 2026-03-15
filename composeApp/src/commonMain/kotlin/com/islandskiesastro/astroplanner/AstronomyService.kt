@@ -2,6 +2,7 @@ package com.islandskiesastro.astroplanner
 
 import kotlin.math.*
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -64,7 +65,7 @@ object AstronomyService {
      * Positive = after 2000-Jan-01 12:00, negative = before.
      * Used as the independent variable in all Schlyter orbital-element formulae.
      */
-    private fun daysFromJ2000(): Double = currentJd() - 2_451_545.0
+    internal fun daysFromJ2000(): Double = currentJd() - 2_451_545.0
 
     // ── GMST ──────────────────────────────────────────────────────────────────
 
@@ -200,6 +201,38 @@ object AstronomyService {
         val siderealDegUntilTransit = if (haDeg <= 0.0) -haDeg else 360.0 - haDeg
 
         // Convert to wall-clock milliseconds (sidereal day ≠ solar day)
+        val solarMsUntilTransit =
+            ((siderealDegUntilTransit / 360.0) * 23.9344696 * 3_600_000.0).toLong()
+
+        val transitInstant = Instant.fromEpochMilliseconds(nowMs + solarMsUntilTransit)
+        val ldt = transitInstant.toLocalDateTime(TimeZone.currentSystemDefault())
+
+        val hour   = ldt.hour
+        val minute = ldt.minute
+        val ampm   = if (hour < 12) "am" else "pm"
+        val hour12 = when {
+            hour == 0  -> 12
+            hour > 12  -> hour - 12
+            else       -> hour
+        }
+        return "${hour12}:${minute.toString().padStart(2, '0')} $ampm"
+    }
+
+    /**
+     * Identical to [getMeridianTransit] but uses the provided J2000 epoch offset [d]
+     * instead of the current time.
+     */
+    fun getMeridianTransitForD(ra: Double, lon: Double, lat: Double, d: Double): String {
+        val nowMs = ((d + 10957.5) * 86_400_000.0).toLong()
+        val jd    = d + 2_451_545.0
+        val gmst  = gmstDeg(jd)
+
+        val lstDeg = norm360(gmst + lon)
+        var haDeg = norm360(lstDeg - ra)
+        if (haDeg > 180.0) haDeg -= 360.0
+
+        val siderealDegUntilTransit = if (haDeg <= 0.0) -haDeg else 360.0 - haDeg
+
         val solarMsUntilTransit =
             ((siderealDegUntilTransit / 360.0) * 23.9344696 * 3_600_000.0).toLong()
 
@@ -779,8 +812,15 @@ object AstronomyService {
      * @return Pair(eveningTwilightD, morningTwilightD) in days-from-J2000, or null
      *         if the Sun never drops below −18° (midnight-sun conditions).
      */
-    fun getAstronomicalTwilightTimes(lat: Double, lon: Double): Pair<Double, Double>? {
-        val d0     = daysFromJ2000()
+    fun getAstronomicalTwilightTimes(lat: Double, lon: Double): Pair<Double, Double>? =
+        getAstronomicalTwilightTimesForD(lat, lon, daysFromJ2000())
+
+    /**
+     * Identical to [getAstronomicalTwilightTimes] but uses the provided J2000 epoch
+     * offset [referenceD] as the centre of the 36-hour search window instead of now.
+     */
+    fun getAstronomicalTwilightTimesForD(lat: Double, lon: Double, referenceD: Double): Pair<Double, Double>? {
+        val d0     = referenceD
         val stepD  = 10.0 / (24.0 * 60.0)   // 10 minutes in days
         val startD = d0 - 0.75
         val endD   = d0 + 0.75
@@ -859,6 +899,27 @@ object AstronomyService {
         val ampm  = if (h < 12) "am" else "pm"
         val h12   = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
         return "${h12}:${ldt.minute.toString().padStart(2, '0')} $ampm"
+    }
+
+    /**
+     * Format a J2000 epoch offset [d] as a short local date string, e.g. `"Wed 3/19/25"`.
+     *
+     * @param d Days from J2000.0.
+     * @return Date string in the device's current timezone.
+     */
+    fun dToLocalDateString(d: Double): String {
+        val ms  = ((d + 10957.5) * 86_400_000.0).toLong()
+        val ldt = Instant.fromEpochMilliseconds(ms).toLocalDateTime(TimeZone.currentSystemDefault())
+        val dow = when (ldt.dayOfWeek) {
+            DayOfWeek.MONDAY    -> "Mon"
+            DayOfWeek.TUESDAY   -> "Tue"
+            DayOfWeek.WEDNESDAY -> "Wed"
+            DayOfWeek.THURSDAY  -> "Thu"
+            DayOfWeek.FRIDAY    -> "Fri"
+            DayOfWeek.SATURDAY  -> "Sat"
+            else                -> "Sun"
+        }
+        return "$dow ${ldt.monthNumber}/${ldt.dayOfMonth}/${ldt.year % 100}"
     }
 
     // ── Moon rise / set ────────────────────────────────────────────────────────

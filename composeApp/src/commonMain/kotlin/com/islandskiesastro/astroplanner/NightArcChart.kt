@@ -40,10 +40,11 @@ private val ArcColorMoon   = Color(0xFF90B8E0)   // cool steel-blue — the Moon
 internal fun NightArcChart(
     skyObj: SkyObject,
     location: LocationData,
+    observingD: Double,
     modifier: Modifier = Modifier
 ) {
-    val twilightTimes = remember(location.latitude, location.longitude) {
-        AstronomyService.getAstronomicalTwilightTimes(location.latitude, location.longitude)
+    val twilightTimes = remember(location.latitude, location.longitude, observingD) {
+        AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, observingD)
     }
 
     if (twilightTimes == null) {
@@ -56,7 +57,7 @@ internal fun NightArcChart(
         return
     }
 
-    val chartData = remember(skyObj.obj.objectId, location.latitude, location.longitude) {
+    val chartData = remember(skyObj.obj.objectId, location.latitude, location.longitude, observingD) {
         computeNightChartData(skyObj, location, twilightTimes.first, twilightTimes.second)
     }
 

@@ -33,11 +33,12 @@ import kotlin.math.roundToInt
 internal fun DetailScreen(
     skyObj: SkyObject,
     image: CelestialObjectImage?,
-    location: LocationData?
+    location: LocationData?,
+    observingD: Double
 ) {
-    val twilightTimes = remember(location?.latitude, location?.longitude) {
+    val twilightTimes = remember(location?.latitude, location?.longitude, observingD) {
         if (location != null)
-            AstronomyService.getAstronomicalTwilightTimes(location.latitude, location.longitude)
+            AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, observingD)
         else null
     }
 
@@ -48,7 +49,7 @@ internal fun DetailScreen(
         return
     }
 
-    val moonNightInfo = remember(location?.latitude, location?.longitude) {
+    val moonNightInfo = remember(location?.latitude, location?.longitude, observingD) {
         if (location != null && twilightTimes != null) {
             val (eveD, mornD) = twilightTimes
             val riseSet = AstronomyService.getMoonRiseSetTimes(
@@ -119,7 +120,10 @@ internal fun DetailScreen(
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                 Spacer(Modifier.height(12.dp))
-                Text("Visibility Tonight", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Visibility Tonight \u2014 ${AstronomyService.dToLocalDateString(observingD)}",
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Spacer(Modifier.height(6.dp))
 
                 if (twilightTimes != null) {
@@ -186,9 +190,10 @@ internal fun DetailScreen(
 
                 Spacer(Modifier.height(10.dp))
                 NightArcChart(
-                    skyObj   = skyObj,
-                    location = location,
-                    modifier = Modifier
+                    skyObj     = skyObj,
+                    location   = location,
+                    observingD = observingD,
+                    modifier   = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
                 )
