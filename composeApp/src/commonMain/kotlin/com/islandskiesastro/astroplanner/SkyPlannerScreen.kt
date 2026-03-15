@@ -106,12 +106,16 @@ fun SkyPlannerScreen(
     }
 
     LaunchedEffect(location?.latitude, location?.longitude, observingD) {
-        sliderTwilightTimes = if (location != null)
-            AstronomyService.getAstronomicalTwilightTimesForD(
-                location.latitude, location.longitude,
-                observingD ?: AstronomyService.daysFromJ2000()
-            )
-        else null
+        sliderTwilightTimes = if (location != null) {
+            val d = observingD ?: AstronomyService.daysFromJ2000()
+            var times = AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, d)
+            // If observingD is unset (live "now") and we're already past morning twilight,
+            // we're in daytime — advance by one day to find tonight's night.
+            if (observingD == null && times != null && d > times.second) {
+                times = AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, d + 1.0)
+            }
+            times
+        } else null
     }
 
     fun loadObjects() {
@@ -139,10 +143,12 @@ fun SkyPlannerScreen(
 
     if (selectedObject != null) {
         DetailScreen(
-            skyObj     = selectedObject!!.first,
-            image      = selectedObject!!.second,
-            location   = location,
-            observingD = currentD
+            skyObj              = selectedObject!!.first,
+            image               = selectedObject!!.second,
+            location            = location,
+            observingD          = currentD,
+            onBack              = { selectedObject = null },
+            onBackActionChanged = onBackActionChanged
         )
         return
     }

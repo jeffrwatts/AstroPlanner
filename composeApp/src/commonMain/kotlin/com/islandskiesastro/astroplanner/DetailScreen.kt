@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +35,9 @@ internal fun DetailScreen(
     skyObj: SkyObject,
     image: CelestialObjectImage?,
     location: LocationData?,
-    observingD: Double
+    observingD: Double,
+    onBack: () -> Unit = {},
+    onBackActionChanged: ((() -> Unit)?) -> Unit = {}
 ) {
     val twilightTimes = remember(location?.latitude, location?.longitude, observingD) {
         if (location != null)
@@ -43,6 +46,10 @@ internal fun DetailScreen(
     }
 
     var showFov by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showFov) {
+        onBackActionChanged(if (showFov) ({ showFov = false }) else onBack)
+    }
 
     if (showFov) {
         FieldOfViewScreen(skyObj = skyObj, onBack = { showFov = false })
