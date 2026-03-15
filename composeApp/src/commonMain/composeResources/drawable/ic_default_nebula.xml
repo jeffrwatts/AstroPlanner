@@ -1,0 +1,52 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp" android:height="100dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <!-- Background -->
+    <path
+        android:fillColor="#FF0A0A1A"
+        android:pathData="M0,0 L100,0 L100,100 L0,100 Z"/>
+    <!-- Nebula cloud 1: ellipse cx=45 cy=48 rx=32 ry=22 opacity=0.5 -->
+    <path
+        android:fillColor="#806020A0"
+        android:pathData="M13,48 A32,22 0 1,0 77,48 A32,22 0 1,0 13,48 Z"/>
+    <!-- Nebula cloud 2: ellipse cx=58 cy=42 rx=22 ry=16 opacity=0.45 -->
+    <path
+        android:fillColor="#73A030C0"
+        android:pathData="M36,42 A22,16 0 1,0 80,42 A22,16 0 1,0 36,42 Z"/>
+    <!-- Nebula cloud 3: ellipse cx=38 cy=58 rx=18 ry=14 opacity=0.45 -->
+    <path
+        android:fillColor="#734040C0"
+        android:pathData="M20,58 A18,14 0 1,0 56,58 A18,14 0 1,0 20,58 Z"/>
+    <!-- Nebula cloud 4: ellipse cx=55 cy=58 rx=16 ry=12 opacity=0.35 -->
+    <path
+        android:fillColor="#59C040A0"
+        android:pathData="M39,58 A16,12 0 1,0 71,58 A16,12 0 1,0 39,58 Z"/>
+    <!-- Inner bright region: ellipse cx=50 cy=48 rx=8 ry=6 opacity=0.6 -->
+    <path
+        android:fillColor="#99E080FF"
+        android:pathData="M42,48 A8,6 0 1,0 58,48 A8,6 0 1,0 42,48 Z"/>
+    <!-- Central star: circle cx=50 cy=48 r=2.5 opacity=0.95 -->
+    <path
+        android:fillColor="#F2FFFFFF"
+        android:pathData="M47.5,48 A2.5,2.5 0 1,0 52.5,48 A2.5,2.5 0 1,0 47.5,48 Z"/>
+    <!-- Star cx=35 cy=42 r=1.5 opacity=0.85 -->
+    <path
+        android:fillColor="#D9FFFFFF"
+        android:pathData="M33.5,42 A1.5,1.5 0 1,0 36.5,42 A1.5,1.5 0 1,0 33.5,42 Z"/>
+    <!-- Star cx=65 cy=38 r=1.5 opacity=0.85 -->
+    <path
+        android:fillColor="#D9FFFFFF"
+        android:pathData="M63.5,38 A1.5,1.5 0 1,0 66.5,38 A1.5,1.5 0 1,0 63.5,38 Z"/>
+    <!-- Star cx=60 cy=62 r=1.2 opacity=0.7 -->
+    <path
+        android:fillColor="#B3FFFFFF"
+        android:pathData="M58.8,62 A1.2,1.2 0 1,0 61.2,62 A1.2,1.2 0 1,0 58.8,62 Z"/>
+    <!-- Star cx=30 cy=60 r=1.2 opacity=0.7 -->
+    <path
+        android:fillColor="#B3FFFFFF"
+        android:pathData="M28.8,60 A1.2,1.2 0 1,0 31.2,60 A1.2,1.2 0 1,0 28.8,60 Z"/>
+    <!-- Star cx=72 cy=52 r=1 opacity=0.6 -->
+    <path
+        android:fillColor="#99FFFFFF"
+        android:pathData="M71,52 A1,1 0 1,0 73,52 A1,1 0 1,0 71,52 Z"/>
+</vector>

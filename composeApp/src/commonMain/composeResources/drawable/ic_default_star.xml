@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp" android:height="100dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <!-- Background -->
+    <path
+        android:fillColor="#FF0A0A1A"
+        android:pathData="M0,0 L100,0 L100,100 L0,100 Z"/>
+    <!-- 10-pointed star -->
+    <path
+        android:fillColor="#FFFFD700"
+        android:strokeColor="#FFFFA040"
+        android:strokeWidth="1.5"
+        android:pathData="M50,10 L61,37 L90,37 L68,57 L76,84 L50,66 L24,84 L32,57 L10,37 L39,37 Z"/>
+</vector>

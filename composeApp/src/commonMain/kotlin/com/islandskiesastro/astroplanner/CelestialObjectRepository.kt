@@ -57,18 +57,28 @@ class CelestialObjectRepository(
     fun getRecommendedObjects(): List<CelestialObject> =
         queries.selectRecommended().executeAsList().map { it.toDomain() }
 
-    fun getImagesMap(): Map<String, CelestialObjectImage> =
-        imageQueries.selectAll().executeAsList().associate { row ->
+    fun getImagesMap(): Map<String, CelestialObjectImage> {
+        val dir = imageStorage.getDir()
+        return imageQueries.selectAll().executeAsList().associate { row ->
+            // Stored value may be a bare filename (new) or an absolute path (legacy).
+            // Always reconstruct from the current documents directory so paths remain
+            // valid across iOS reinstalls/simulator redeployments.
+            fun resolve(stored: String?): String? {
+                if (stored == null) return null
+                val filename = stored.substringAfterLast('/')
+                return "$dir/$filename"
+            }
             row.objectId to CelestialObjectImage(
-                objectId = row.objectId,
-                url = row.url,
-                fullPath = row.fullPath,
-                thumbPath = row.thumbPath,
-                thumbX = row.thumbX?.toInt(),
-                thumbY = row.thumbY?.toInt(),
-                thumbDim = row.thumbDim?.toInt()
+                objectId  = row.objectId,
+                url       = row.url,
+                fullPath  = resolve(row.fullPath),
+                thumbPath = resolve(row.thumbPath),
+                thumbX    = row.thumbX?.toInt(),
+                thumbY    = row.thumbY?.toInt(),
+                thumbDim  = row.thumbDim?.toInt()
             )
         }
+    }
 
     suspend fun updateCatalog(onStatus: (String) -> Unit) {
         onStatus("Inserting planets...")

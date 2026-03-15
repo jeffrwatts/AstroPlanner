@@ -692,4 +692,230 @@ object AstronomyService {
               + 0.035 * sin((Ms - 3 * Mu + 33.0).toRad())
               - 0.015 * sin((Mj -     Mu + 20.0).toRad()))
     }
+
+    // ── Epoch-dependent Alt/Az ────────────────────────────────────────────────
+
+    /**
+     * Identical to [getAltAzm] but accepts a J2000 epoch offset [d] instead of
+     * reading the current time. Used by [NightArcChart] to sample altitude across
+     * a night window.
+     *
+     * @param ra  Right Ascension in degrees.
+     * @param dec Declination in degrees.
+     * @param lat Observer latitude in degrees.
+     * @param lon Observer longitude in degrees.
+     * @param d   Days from J2000.0.
+     * @return [AltAzmData] with refraction-corrected altitude and true azimuth.
+     */
+    internal fun getAltAzmForD(ra: Double, dec: Double, lat: Double, lon: Double, d: Double): AltAzmData {
+        val jd   = d + 2_451_545.0
+        val gmst = gmstDeg(jd)
+        val lstDeg = norm360(gmst + lon)
+        val haDeg  = norm360(lstDeg - ra)
+        val haR  = haDeg.toRad()
+        val decR = dec.toRad()
+        val latR = lat.toRad()
+
+        val sinAlt   = sin(decR) * sin(latR) + cos(decR) * cos(latR) * cos(haR)
+        val altGeom  = asin(sinAlt.coerceIn(-1.0, 1.0)).toDeg()
+        val altGeomR = altGeom.toRad()
+
+        val cosAlt = cos(altGeomR)
+        val az: Double = if (cosAlt < 1e-10) {
+            0.0
+        } else {
+            val cosAz = (sin(decR) - sin(altGeomR) * sin(latR)) / (cosAlt * cos(latR))
+            val azRaw = acos(cosAz.coerceIn(-1.0, 1.0)).toDeg()
+            if (sin(haR) >= 0.0) 360.0 - azRaw else azRaw
+        }
+
+        val apparentAlt = if (altGeom > -2.0) {
+            val r = 1.02 / tan((altGeom + 10.3 / (altGeom + 5.11)).toRad())
+            altGeom + r / 60.0
+        } else {
+            altGeom
+        }
+        return AltAzmData(apparentAlt, az)
+    }
+
+    // ── Sun RA/Dec for epoch d ─────────────────────────────────────────────────
+
+    /**
+     * Sun's geocentric equatorial coordinates at epoch [d].
+     *
+     * Derives the position from [earthHeliocentric] (Sun's geocentric ecliptic
+     * rectangular coordinates with zh=0) and rotates by the obliquity of the
+     * ecliptic to equatorial coordinates.
+     *
+     * @param d Days from J2000.0.
+     * @return Pair(ra, dec) in degrees.
+     */
+    internal fun getSunRaDecForD(d: Double): Pair<Double, Double> {
+        val (xs, ys, _) = earthHeliocentric(d)
+        val eps = (23.4393 - 3.563e-7 * d).toRad()
+        val xeq = xs
+        val yeq = ys * cos(eps)
+        val zeq = ys * sin(eps)
+        val ra  = norm360(atan2(yeq, xeq).toDeg())
+        val dec = atan2(zeq, sqrt(xeq * xeq + yeq * yeq)).toDeg()
+        return Pair(ra, dec)
+    }
+
+    // ── Astronomical twilight times ────────────────────────────────────────────
+
+    /**
+     * Find the astronomical twilight boundaries for the current night at the given
+     * observer location.
+     *
+     * Searches a 36-hour window centred on now for:
+     *  - Evening twilight: last moment the Sun's altitude crosses −18° descending.
+     *  - Morning twilight: next moment the Sun's altitude crosses −18° ascending.
+     *
+     * The coarse scan (10-minute steps) is refined with binary search (13 iterations,
+     * ~±1-minute precision).
+     *
+     * @param lat Observer latitude in degrees.
+     * @param lon Observer longitude in degrees.
+     * @return Pair(eveningTwilightD, morningTwilightD) in days-from-J2000, or null
+     *         if the Sun never drops below −18° (midnight-sun conditions).
+     */
+    fun getAstronomicalTwilightTimes(lat: Double, lon: Double): Pair<Double, Double>? {
+        val d0     = daysFromJ2000()
+        val stepD  = 10.0 / (24.0 * 60.0)   // 10 minutes in days
+        val startD = d0 - 0.75
+        val endD   = d0 + 0.75
+
+        fun sunAlt(d: Double): Double {
+            val (ra, dec) = getSunRaDecForD(d)
+            return getAltAzmForD(ra, dec, lat, lon, d).altitude
+        }
+
+        var tEve: Double? = null
+        var tMorn: Double? = null
+        var prevD   = startD
+        var prevAlt = sunAlt(prevD)
+        var d = startD + stepD
+
+        while (d <= endD) {
+            val currAlt = sunAlt(d)
+            if (tEve == null && prevAlt >= -18.0 && currAlt < -18.0) {
+                var lo = prevD; var hi = d
+                repeat(13) {
+                    val mid = (lo + hi) / 2.0
+                    if (sunAlt(mid) >= -18.0) lo = mid else hi = mid
+                }
+                tEve = (lo + hi) / 2.0
+            } else if (tEve != null && tMorn == null && prevAlt < -18.0 && currAlt >= -18.0) {
+                var lo = prevD; var hi = d
+                repeat(13) {
+                    val mid = (lo + hi) / 2.0
+                    if (sunAlt(mid) < -18.0) lo = mid else hi = mid
+                }
+                tMorn = (lo + hi) / 2.0
+                break
+            }
+            prevAlt = currAlt
+            prevD = d
+            d += stepD
+        }
+
+        return if (tEve != null && tMorn != null) Pair(tEve, tMorn) else null
+    }
+
+    // ── Moon illumination ──────────────────────────────────────────────────────
+
+    /**
+     * Fraction of the Moon's disc that is illuminated at epoch [d].
+     *
+     * Computes the angular elongation of the Moon from the Sun (as seen from Earth)
+     * and converts it to an illumination fraction:
+     *   k = (1 − cos(elongation)) / 2
+     * This gives 0 at new moon (elongation = 0°) and 1 at full moon (elongation = 180°).
+     *
+     * @param d Days from J2000.0.
+     * @return Illumination fraction in [0.0, 1.0].
+     */
+    fun getMoonIllumination(d: Double): Double {
+        val (moonRa, moonDec) = moonRaDecForD(d)
+        val (sunRa,  sunDec)  = getSunRaDecForD(d)
+        val dRaRad = (moonRa - sunRa).toRad()
+        val cosElong = sin(moonDec.toRad()) * sin(sunDec.toRad()) +
+                       cos(moonDec.toRad()) * cos(sunDec.toRad()) * cos(dRaRad)
+        return (1.0 - cosElong) / 2.0
+    }
+
+    // ── Local time formatting ──────────────────────────────────────────────────
+
+    /**
+     * Format a J2000 epoch offset [d] as a 12-hour local time string, e.g. `"9:34 pm"`.
+     *
+     * @param d Days from J2000.0.
+     * @return Time string in the device's current timezone.
+     */
+    internal fun dToLocalTimeString(d: Double): String {
+        val ms  = ((d + 10957.5) * 86_400_000.0).toLong()
+        val ldt = Instant.fromEpochMilliseconds(ms).toLocalDateTime(TimeZone.currentSystemDefault())
+        val h   = ldt.hour
+        val ampm  = if (h < 12) "am" else "pm"
+        val h12   = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
+        return "${h12}:${ldt.minute.toString().padStart(2, '0')} $ampm"
+    }
+
+    // ── Moon rise / set ────────────────────────────────────────────────────────
+
+    /**
+     * Find the times (if any) when the Moon crosses the horizon during the
+     * astronomical night defined by [[twilightEndD], [twilightStartD]].
+     *
+     * A 5-minute coarse scan across the window is refined with 13-iteration
+     * binary searches (~±0.04 s precision). Only the first rise and first set
+     * crossing found are returned (a second transit within one night is
+     * astronomically impossible at normal latitudes).
+     *
+     * @param lat          Observer latitude in degrees.
+     * @param lon          Observer longitude in degrees.
+     * @param twilightEndD   Start of astronomical night (days from J2000.0).
+     * @param twilightStartD End   of astronomical night (days from J2000.0).
+     * @return Pair(moonRiseD, moonSetD) — either value is null if the Moon
+     *         does not cross the horizon in that direction during the night.
+     */
+    fun getMoonRiseSetTimes(
+        lat: Double, lon: Double,
+        twilightEndD: Double, twilightStartD: Double
+    ): Pair<Double?, Double?> {
+        val stepD = 5.0 / (24.0 * 60.0)
+
+        fun moonAlt(d: Double): Double {
+            val (ra, dec) = moonRaDecForD(d)
+            return getAltAzmForD(ra, dec, lat, lon, d).altitude
+        }
+
+        var moonRiseD: Double? = null
+        var moonSetD:  Double? = null
+        var prevD   = twilightEndD
+        var prevAlt = moonAlt(prevD)
+        var d = twilightEndD + stepD
+
+        while (true) {
+            val clampedD = d.coerceAtMost(twilightStartD)
+            val currAlt  = moonAlt(clampedD)
+
+            if (prevAlt < 0.0 && currAlt >= 0.0 && moonRiseD == null) {
+                var lo = prevD; var hi = clampedD
+                repeat(13) { val mid = (lo + hi) / 2.0; if (moonAlt(mid) < 0.0) lo = mid else hi = mid }
+                moonRiseD = (lo + hi) / 2.0
+            } else if (prevAlt >= 0.0 && currAlt < 0.0 && moonSetD == null) {
+                var lo = prevD; var hi = clampedD
+                repeat(13) { val mid = (lo + hi) / 2.0; if (moonAlt(mid) >= 0.0) lo = mid else hi = mid }
+                moonSetD = (lo + hi) / 2.0
+            }
+
+            if (clampedD >= twilightStartD) break
+            prevAlt = currAlt
+            prevD   = clampedD
+            d      += stepD
+        }
+
+        return Pair(moonRiseD, moonSetD)
+    }
 }

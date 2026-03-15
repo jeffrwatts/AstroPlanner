@@ -1,5 +1,6 @@
 package com.islandskiesastro.astroplanner
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,12 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -49,13 +47,26 @@ internal data class SkyObject(
 fun SkyPlannerScreen(
     location: LocationData?,
     hasLocationPermission: Boolean,
-    repository: CelestialObjectRepository
+    repository: CelestialObjectRepository,
+    onBackActionChanged: ((() -> Unit)?) -> Unit = {},
+    onTitleChanged: (String?) -> Unit = {}
 ) {
     var showRecommendedOnly by remember { mutableStateOf(true) }
     var skyObjects by remember { mutableStateOf<List<SkyObject>>(emptyList()) }
     var imagesMap by remember { mutableStateOf<Map<String, CelestialObjectImage>>(emptyMap()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedObject by remember { mutableStateOf<Pair<SkyObject, CelestialObjectImage?>?>(null) }
+
+    // Notify the parent TopAppBar whether a back action is available and what title to show.
+    LaunchedEffect(selectedObject) {
+        if (selectedObject != null) {
+            onBackActionChanged { selectedObject = null }
+            onTitleChanged(selectedObject!!.first.obj.displayName)
+        } else {
+            onBackActionChanged(null)
+            onTitleChanged(null)
+        }
+    }
 
     fun loadObjects() {
         val objects = if (showRecommendedOnly) repository.getRecommendedObjects()
@@ -82,9 +93,9 @@ fun SkyPlannerScreen(
 
     if (selectedObject != null) {
         DetailScreen(
-            skyObj = selectedObject!!.first,
-            image = selectedObject!!.second,
-            onBack = { selectedObject = null }
+            skyObj   = selectedObject!!.first,
+            image    = selectedObject!!.second,
+            location = location
         )
         return
     }
@@ -165,11 +176,11 @@ private fun SkyObjectItem(
                 contentScale = ContentScale.Crop
             )
         } else {
-            Icon(
-                Icons.Default.Star,
+            Image(
+                painter = defaultImagePainter(skyObj.obj.type),
                 contentDescription = null,
                 modifier = Modifier.size(60.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                contentScale = ContentScale.Crop
             )
         }
 

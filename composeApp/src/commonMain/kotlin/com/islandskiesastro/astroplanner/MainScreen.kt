@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,9 +21,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -41,6 +45,12 @@ fun MainScreen(
     val location by locationService.location.collectAsState()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    // Back action and title override supplied by the active screen when a detail is open.
+    var backAction  by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var detailTitle by remember { mutableStateOf<String?>(null) }
+    // Clear both whenever the user switches tabs.
+    LaunchedEffect(selectedIndex) { backAction = null; detailTitle = null }
 
     DisposableEffect(hasLocationPermission) {
         if (hasLocationPermission) locationService.startUpdates()
@@ -71,10 +81,20 @@ fun MainScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(Screen.all[selectedIndex].title) },
+                    title = { Text(detailTitle ?: Screen.all[selectedIndex].title) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Open menu")
+                        }
+                    },
+                    actions = {
+                        backAction?.let { action ->
+                            IconButton(onClick = action) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back"
+                                )
+                            }
                         }
                     }
                 )
@@ -82,7 +102,11 @@ fun MainScreen(
         ) { innerPadding ->
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 when (Screen.all[selectedIndex]) {
-                    Screen.SkyPlanner -> SkyPlannerScreen(location, hasLocationPermission, repository)
+                    Screen.SkyPlanner -> SkyPlannerScreen(
+                        location, hasLocationPermission, repository,
+                        onBackActionChanged = { backAction = it },
+                        onTitleChanged = { detailTitle = it }
+                    )
                     Screen.Info       -> InfoScreen(location, hasLocationPermission)
                     Screen.AltAzm     -> AltAzmScreen(location, hasLocationPermission)
                     Screen.Update     -> UpdateScreen(repository)
