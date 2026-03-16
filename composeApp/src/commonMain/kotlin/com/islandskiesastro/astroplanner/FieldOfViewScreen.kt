@@ -109,6 +109,7 @@ internal fun FieldOfViewScreen(
     var displayedImageSize by remember { mutableStateOf(1.0) }
     var displayedCenterRa  by remember { mutableStateOf(skyObj.obj.ra) }
     var displayedCenterDec by remember { mutableStateOf(skyObj.obj.dec) }
+    var displayedRotation  by remember { mutableStateOf(0f) }
     var isLoading          by remember { mutableStateOf(false) }
     var errorMsg           by remember { mutableStateOf<String?>(null) }
 
@@ -150,7 +151,8 @@ internal fun FieldOfViewScreen(
             newRa  = skyObj.obj.ra
             newDec = skyObj.obj.dec
         }
-        val rot = rectRotation
+        val flipFactor = if (flipH xor flipV) -1f else 1f
+        val rot = ((displayedRotation * flipFactor + rectRotation) % 360f + 360f) % 360f
 
         isLoading = true
         errorMsg  = null
@@ -165,6 +167,7 @@ internal fun FieldOfViewScreen(
             displayedImageSize = imgSize
             displayedCenterRa  = newRa
             displayedCenterDec = newDec
+            displayedRotation  = rot
             // Rectangle is now centered in the new image
             rectOffsetX  = 0f
             rectOffsetY  = 0f
