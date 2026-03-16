@@ -97,7 +97,14 @@ internal fun FieldOfViewScreen(
     var selectedOptElem    by remember { mutableStateOf(EquipmentRepository.defaultEquipment.opticalElement) }
     var selectedCamera     by remember { mutableStateOf(EquipmentRepository.defaultEquipment.camera) }
     var scaling            by remember { mutableStateOf("Linear") }
-    var imageSizeDeg       by remember { mutableStateOf(1.5f) }
+    var imageSizeDeg       by remember {
+        val (w, h) = computeFov(
+            EquipmentRepository.defaultEquipment.telescope,
+            EquipmentRepository.defaultEquipment.opticalElement,
+            EquipmentRepository.defaultEquipment.camera
+        )
+        mutableStateOf((max(w, h) * 1.1).toFloat())
+    }
     var imageBytes         by remember { mutableStateOf<ByteArray?>(null) }
     var displayedImageSize by remember { mutableStateOf(1.0) }
     var displayedCenterRa  by remember { mutableStateOf(skyObj.obj.ra) }
@@ -243,7 +250,10 @@ internal fun FieldOfViewScreen(
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = { scope.launch { fetchImage() } }, enabled = !isLoading) {
+            Button(onClick = {
+                imageSizeDeg = (max(fovW, fovH) * 1.1).toFloat()
+                scope.launch { fetchImage() }
+            }, enabled = !isLoading) {
                 Text("Update")
             }
             Column(
@@ -312,6 +322,7 @@ internal fun FieldOfViewScreen(
                 Slider(
                     value = imageSizeDeg,
                     onValueChange = { imageSizeDeg = it },
+                    onValueChangeFinished = { if (!isLoading) scope.launch { fetchImage() } },
                     valueRange = 0.5f..5.0f,
                     modifier = Modifier.weight(1f)
                 )
