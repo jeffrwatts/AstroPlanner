@@ -108,6 +108,7 @@ fun MainScreen(
                         onBackActionChanged = { backAction = it },
                         onTitleChanged = { detailTitle = it }
                     )
+                    Screen.Jupiter    -> JupiterScreen(location, hasLocationPermission)
                     Screen.Info       -> InfoScreen(location, hasLocationPermission)
                     Screen.AltAzm     -> AltAzmScreen(orientationService, location, hasLocationPermission)
                     Screen.Update     -> UpdateScreen(repository)

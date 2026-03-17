@@ -335,6 +335,23 @@ object AstronomyService {
         return Pair(ra, dec)
     }
 
+    /**
+     * Geocentric ecliptic longitude of Jupiter in degrees, computed from full
+     * orbital mechanics (including equation of centre and perturbations from
+     * Saturn). This is the direction from Earth toward Jupiter in the ecliptic
+     * plane, and is used as the sky-projection reference for Galilean satellite
+     * positions.
+     */
+    internal fun jupiterGeocentricEclipticLon(d: Double): Double {
+        val earth = earthHeliocentric(d)
+        val Mj = norm360(19.8950 + 0.0830853001 * d)
+        val Ms = norm360(316.9670 + 0.0334442282 * d)
+        val (xh, yh, _) = perturbXYZ(jupiter(d), jupiterLonPertDeg(Mj, Ms))
+        val xg = xh + earth.first
+        val yg = yh + earth.second
+        return norm360(atan2(yg, xg).toDeg())
+    }
+
     // ── Kepler solver ─────────────────────────────────────────────────────────
 
     /**
