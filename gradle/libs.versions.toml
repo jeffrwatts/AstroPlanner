@@ -12,6 +12,7 @@ sqldelight = "2.0.2"
 ktor = "3.0.3"
 kotlinx-serialization = "1.7.3"
 astronomy = "v2.1.19"
+camera = "1.4.1"
 coil = "3.0.4"
 
 [libraries]
@@ -28,6 +29,10 @@ ktor-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation",
 ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 astronomy = { module = "com.github.cosinekitty:astronomy", version.ref = "astronomy" }
+camera-core     = { module = "androidx.camera:camera-core",      version.ref = "camera" }
+camera-camera2  = { module = "androidx.camera:camera-camera2",   version.ref = "camera" }
+camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camera" }
+camera-view     = { module = "androidx.camera:camera-view",      version.ref = "camera" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 
 [plugins]

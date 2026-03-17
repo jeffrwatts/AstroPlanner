@@ -5,8 +5,9 @@ import androidx.compose.ui.window.ComposeUIViewController
 
 fun MainViewController() = ComposeUIViewController {
     val locationService = remember { LocationService() }
+    val orientationService = remember { OrientationService() }
     val driverFactory = remember { DatabaseDriverFactory() }
     val imageStorage = remember { ImageStorage() }
     val repository = remember { CelestialObjectRepository(driverFactory, imageStorage) }
-    App(locationService, hasLocationPermission = true, repository = repository)
+    App(locationService, orientationService, hasLocationPermission = true, repository = repository)
 }

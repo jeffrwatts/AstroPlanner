@@ -7,10 +7,11 @@ import androidx.compose.runtime.Composable
 @Composable
 fun App(
     locationService: LocationService,
+    orientationService: OrientationService,
     hasLocationPermission: Boolean,
     repository: CelestialObjectRepository
 ) {
     MaterialTheme(colorScheme = darkColorScheme()) {
-        MainScreen(locationService, hasLocationPermission, repository)
+        MainScreen(locationService, orientationService, hasLocationPermission, repository)
     }
 }

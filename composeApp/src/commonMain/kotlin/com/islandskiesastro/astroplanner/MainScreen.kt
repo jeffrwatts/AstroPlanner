@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     locationService: LocationService,
+    orientationService: OrientationService,
     hasLocationPermission: Boolean,
     repository: CelestialObjectRepository
 ) {
@@ -108,7 +109,7 @@ fun MainScreen(
                         onTitleChanged = { detailTitle = it }
                     )
                     Screen.Info       -> InfoScreen(location, hasLocationPermission)
-                    Screen.AltAzm     -> AltAzmScreen(location, hasLocationPermission)
+                    Screen.AltAzm     -> AltAzmScreen(orientationService, location, hasLocationPermission)
                     Screen.Update     -> UpdateScreen(repository)
                     Screen.Settings   -> SettingsScreen(location, hasLocationPermission)
                 }

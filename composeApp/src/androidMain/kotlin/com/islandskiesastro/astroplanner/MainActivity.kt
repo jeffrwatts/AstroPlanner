@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
     private lateinit var locationService: LocationService
+    private lateinit var orientationService: OrientationService
     private lateinit var repository: CelestialObjectRepository
 
     private val locationPermissionLauncher = registerForActivityResult(
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         locationService = LocationService(applicationContext)
+        orientationService = OrientationService(applicationContext)
         val driverFactory = DatabaseDriverFactory(applicationContext)
         val imageStorage = ImageStorage(applicationContext)
         repository = CelestialObjectRepository(driverFactory, imageStorage)
@@ -47,7 +49,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showApp(hasPermission: Boolean) {
         setContent {
-            App(locationService, hasPermission, repository)
+            App(locationService, orientationService, hasPermission, repository)
         }
     }
 }

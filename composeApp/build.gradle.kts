@@ -38,6 +38,10 @@ kotlin {
             implementation(libs.sqldelight.android)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.astronomy)
+            implementation(libs.camera.core)
+            implementation(libs.camera.camera2)
+            implementation(libs.camera.lifecycle)
+            implementation(libs.camera.view)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
