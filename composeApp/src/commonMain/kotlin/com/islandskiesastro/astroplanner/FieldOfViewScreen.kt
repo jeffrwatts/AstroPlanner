@@ -57,6 +57,7 @@ import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.sin
 import kotlin.math.roundToInt
 
 private fun computeFov(
@@ -141,8 +142,17 @@ internal fun FieldOfViewScreen(
         val newRa: Double
         val newDec: Double
         if (canvasSize.width > 0 && displayedImageSize > 0) {
-            val dxDeg = rectOffsetX * displayedImageSize / canvasSize.width
-            val dyDeg = rectOffsetY * displayedImageSize / canvasSize.height
+            // Un-rotate pixel offset into sky frame to account for image rotation.
+            // The SkyView image is rotated by displayedRotation degrees, so screen axes
+            // are misaligned with sky axes by that amount. Apply the inverse rotation
+            // to recover the sky-frame (North-up, East-left) offset.
+            val rotRad = displayedRotation * PI / 180.0
+            val cosR   = cos(rotRad)
+            val sinR   = sin(rotRad)
+            val dxSky  = rectOffsetX * cosR - rectOffsetY * sinR
+            val dySky  = rectOffsetX * sinR + rectOffsetY * cosR
+            val dxDeg  = dxSky * displayedImageSize / canvasSize.width
+            val dyDeg  = dySky * displayedImageSize / canvasSize.height
             // North up, East left: right = West (RA-), down = South (Dec-)
             val dec   = displayedCenterDec - dyDeg
             newDec    = dec
