@@ -135,6 +135,12 @@ internal fun DetailScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(Modifier.height(6.dp))
+                Text(
+                    "Transit: ${skyObj.transit}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
 
                 if (twilightTimes != null) {
                     val (eveD, mornD) = twilightTimes
