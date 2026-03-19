@@ -174,9 +174,13 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(config.name, style = MaterialTheme.typography.bodyLarge)
+                            val subtitle = buildList {
+                                if (config.otaName.isNotBlank())    add(config.otaName)
+                                if (config.cameraName.isNotBlank()) add(config.cameraName)
+                                add("${config.focalLength}mm · ${config.focalReducerFactor}x · ${config.pixelSize}µm")
+                            }.joinToString(" · ")
                             Text(
-                                "${config.focalLength}mm · ${config.focalReducerFactor}x · " +
-                                "${config.pixelSize}µm · ${config.resolutionWidth}×${config.resolutionHeight}px",
+                                subtitle,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -243,6 +247,8 @@ private fun EquipmentConfigDialog(
     onSave: (EquipmentConfig) -> Unit
 ) {
     var name               by remember { mutableStateOf(initial?.name               ?: "") }
+    var otaName            by remember { mutableStateOf(initial?.otaName            ?: "") }
+    var cameraName         by remember { mutableStateOf(initial?.cameraName         ?: "") }
     var focalLength        by remember { mutableStateOf(initial?.focalLength?.toString()        ?: "") }
     var aperture           by remember { mutableStateOf(initial?.aperture?.toString()           ?: "") }
     var focalReducerFactor by remember { mutableStateOf(initial?.focalReducerFactor?.toString() ?: "1.0") }
@@ -261,7 +267,19 @@ private fun EquipmentConfigDialog(
                 }
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text("Config Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = otaName, onValueChange = { otaName = it },
+                    label = { Text("OTA Name (e.g. Celestron C8)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = cameraName, onValueChange = { cameraName = it },
+                    label = { Text("Camera Name (e.g. ZWO ASI 294MC Pro)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -328,6 +346,8 @@ private fun EquipmentConfigDialog(
                     else -> onSave(EquipmentConfig(
                         id                 = initial?.id ?: 0L,
                         name               = name.trim(),
+                        otaName            = otaName.trim(),
+                        cameraName         = cameraName.trim(),
                         focalLength        = fl,
                         aperture           = ap,
                         focalReducerFactor = frf,

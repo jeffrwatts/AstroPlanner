@@ -1,6 +1,8 @@
 CREATE TABLE equipmentConfig (
     id                 INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     name               TEXT    NOT NULL,
+    otaName            TEXT    NOT NULL DEFAULT '',
+    cameraName         TEXT    NOT NULL DEFAULT '',
     focalLength        REAL    NOT NULL,
     aperture           REAL    NOT NULL,
     focalReducerFactor REAL    NOT NULL,
@@ -13,12 +15,12 @@ selectAll:
 SELECT * FROM equipmentConfig ORDER BY id;
 
 insert:
-INSERT INTO equipmentConfig (name, focalLength, aperture, focalReducerFactor, pixelSize, resolutionWidth, resolutionHeight)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO equipmentConfig (name, otaName, cameraName, focalLength, aperture, focalReducerFactor, pixelSize, resolutionWidth, resolutionHeight)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 update:
 UPDATE equipmentConfig
-SET name=?, focalLength=?, aperture=?, focalReducerFactor=?, pixelSize=?, resolutionWidth=?, resolutionHeight=?
+SET name=?, otaName=?, cameraName=?, focalLength=?, aperture=?, focalReducerFactor=?, pixelSize=?, resolutionWidth=?, resolutionHeight=?
 WHERE id=?;
 
 deleteById:

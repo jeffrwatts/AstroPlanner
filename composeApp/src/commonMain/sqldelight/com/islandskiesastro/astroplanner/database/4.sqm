@@ -1,0 +1,2 @@
+ALTER TABLE equipmentConfig ADD COLUMN otaName TEXT NOT NULL DEFAULT '';
+ALTER TABLE equipmentConfig ADD COLUMN cameraName TEXT NOT NULL DEFAULT '';

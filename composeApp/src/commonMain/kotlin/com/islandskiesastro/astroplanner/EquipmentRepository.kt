@@ -10,8 +10,12 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
     init {
         // Seed defaults on first run so FOV screen is immediately usable
         if (queries.selectAll().executeAsList().isEmpty()) {
-            queries.insert("C8 + 0.63x Reducer + ASI294MC Pro", 2032.0, 203.2, 0.63, 4.63, 4144, 2822)
-            queries.insert("RedCat 61 + ASI2600MC Duo",          360.0,  61.0,  1.0,  3.76, 6248, 4176)
+            queries.insert("C8 + 0.63x Reducer + ASI294MC Pro",
+                "Celestron C8", "ZWO ASI 294MC Pro",
+                2032.0, 203.2, 0.63, 4.63, 4144, 2822)
+            queries.insert("RedCat 61 + ASI2600MC Duo",
+                "William Optics RedCat 61", "ZWO ASI 2600MC Duo",
+                360.0, 61.0, 1.0, 3.76, 6248, 4176)
         }
     }
 
@@ -20,7 +24,8 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
 
     fun insert(config: EquipmentConfig) {
         queries.insert(
-            config.name, config.focalLength, config.aperture,
+            config.name, config.otaName, config.cameraName,
+            config.focalLength, config.aperture,
             config.focalReducerFactor, config.pixelSize,
             config.resolutionWidth.toLong(), config.resolutionHeight.toLong()
         )
@@ -28,7 +33,8 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
 
     fun update(config: EquipmentConfig) {
         queries.update(
-            config.name, config.focalLength, config.aperture,
+            config.name, config.otaName, config.cameraName,
+            config.focalLength, config.aperture,
             config.focalReducerFactor, config.pixelSize,
             config.resolutionWidth.toLong(), config.resolutionHeight.toLong(),
             config.id
@@ -42,6 +48,8 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
     private fun EquipmentConfigRow.toDomain() = EquipmentConfig(
         id                 = id,
         name               = name,
+        otaName            = otaName,
+        cameraName         = cameraName,
         focalLength        = focalLength,
         aperture           = aperture,
         focalReducerFactor = focalReducerFactor,
