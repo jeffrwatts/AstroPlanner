@@ -261,7 +261,10 @@ private fun EquipmentConfigDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "Add Equipment" else "Edit Equipment") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 if (error != null) {
                     Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
