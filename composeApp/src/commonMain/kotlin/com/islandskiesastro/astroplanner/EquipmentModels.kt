@@ -6,6 +6,7 @@ data class EquipmentConfig(
     val focalLength: Double,          // mm — telescope focal length
     val aperture: Double,             // mm — telescope aperture (display only)
     val focalReducerFactor: Double,   // 1.0 = no reducer
-    val sensorWidth: Double,          // mm
-    val sensorHeight: Double          // mm
+    val pixelSize: Double,            // µm — camera pixel size
+    val resolutionWidth: Int,         // px
+    val resolutionHeight: Int         // px
 )

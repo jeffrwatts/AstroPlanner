@@ -1,0 +1,12 @@
+DROP TABLE equipmentConfig;
+
+CREATE TABLE equipmentConfig (
+    id                 INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name               TEXT    NOT NULL,
+    focalLength        REAL    NOT NULL,
+    aperture           REAL    NOT NULL,
+    focalReducerFactor REAL    NOT NULL,
+    pixelSize          REAL    NOT NULL,
+    resolutionWidth    INTEGER NOT NULL,
+    resolutionHeight   INTEGER NOT NULL
+);

@@ -61,10 +61,17 @@ import kotlin.math.sin
 import kotlin.math.roundToInt
 
 private fun computeFov(config: EquipmentConfig): Pair<Double, Double> {
-    val fl   = config.focalLength * config.focalReducerFactor
-    val fovW = 2.0 * atan(config.sensorWidth  / (2.0 * fl)) * (180.0 / PI)
-    val fovH = 2.0 * atan(config.sensorHeight / (2.0 * fl)) * (180.0 / PI)
+    val fl      = config.focalLength * config.focalReducerFactor
+    val sensorW = config.pixelSize * config.resolutionWidth  / 1000.0  // µm → mm
+    val sensorH = config.pixelSize * config.resolutionHeight / 1000.0
+    val fovW    = 2.0 * atan(sensorW / (2.0 * fl)) * (180.0 / PI)
+    val fovH    = 2.0 * atan(sensorH / (2.0 * fl)) * (180.0 / PI)
     return Pair(fovW, fovH)
+}
+
+private fun plateScale(config: EquipmentConfig): Double {
+    val fl = config.focalLength * config.focalReducerFactor
+    return (config.pixelSize / fl) * 206.265   // arcsec/pixel
 }
 
 private fun skyViewUrl(
@@ -275,6 +282,13 @@ internal fun FieldOfViewScreen(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                selectedConfig?.let {
+                    Text(
+                        "Scale: ${plateScale(it).fmt2()}\"/px",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 

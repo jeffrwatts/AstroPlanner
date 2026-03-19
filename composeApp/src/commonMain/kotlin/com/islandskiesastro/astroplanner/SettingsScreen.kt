@@ -176,7 +176,7 @@ fun SettingsScreen(
                             Text(config.name, style = MaterialTheme.typography.bodyLarge)
                             Text(
                                 "${config.focalLength}mm · ${config.focalReducerFactor}x · " +
-                                "${config.sensorWidth}×${config.sensorHeight}mm sensor",
+                                "${config.pixelSize}µm · ${config.resolutionWidth}×${config.resolutionHeight}px",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -246,8 +246,9 @@ private fun EquipmentConfigDialog(
     var focalLength        by remember { mutableStateOf(initial?.focalLength?.toString()        ?: "") }
     var aperture           by remember { mutableStateOf(initial?.aperture?.toString()           ?: "") }
     var focalReducerFactor by remember { mutableStateOf(initial?.focalReducerFactor?.toString() ?: "1.0") }
-    var sensorWidth        by remember { mutableStateOf(initial?.sensorWidth?.toString()        ?: "") }
-    var sensorHeight       by remember { mutableStateOf(initial?.sensorHeight?.toString()       ?: "") }
+    var pixelSize          by remember { mutableStateOf(initial?.pixelSize?.toString()          ?: "") }
+    var resolutionWidth    by remember { mutableStateOf(initial?.resolutionWidth?.toString()    ?: "") }
+    var resolutionHeight   by remember { mutableStateOf(initial?.resolutionHeight?.toString()   ?: "") }
     var error              by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -286,17 +287,24 @@ private fun EquipmentConfigDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = sensorWidth, onValueChange = { sensorWidth = it },
-                    label = { Text("Sensor Width (mm)") },
+                    value = pixelSize, onValueChange = { pixelSize = it },
+                    label = { Text("Pixel Size (µm)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = sensorHeight, onValueChange = { sensorHeight = it },
-                    label = { Text("Sensor Height (mm)") },
+                    value = resolutionWidth, onValueChange = { resolutionWidth = it },
+                    label = { Text("Resolution Width (px)") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = resolutionHeight, onValueChange = { resolutionHeight = it },
+                    label = { Text("Resolution Height (px)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -306,23 +314,26 @@ private fun EquipmentConfigDialog(
                 val fl  = focalLength.toDoubleOrNull()
                 val ap  = aperture.toDoubleOrNull()
                 val frf = focalReducerFactor.toDoubleOrNull()
-                val sw  = sensorWidth.toDoubleOrNull()
-                val sh  = sensorHeight.toDoubleOrNull()
+                val ps  = pixelSize.toDoubleOrNull()
+                val rw  = resolutionWidth.toIntOrNull()
+                val rh  = resolutionHeight.toIntOrNull()
                 when {
-                    name.isBlank()   -> error = "Name is required"
-                    fl == null       -> error = "Invalid focal length"
-                    ap == null       -> error = "Invalid aperture"
-                    frf == null      -> error = "Invalid focal reducer factor"
-                    sw == null       -> error = "Invalid sensor width"
-                    sh == null       -> error = "Invalid sensor height"
+                    name.isBlank() -> error = "Name is required"
+                    fl  == null    -> error = "Invalid focal length"
+                    ap  == null    -> error = "Invalid aperture"
+                    frf == null    -> error = "Invalid focal reducer factor"
+                    ps  == null    -> error = "Invalid pixel size"
+                    rw  == null    -> error = "Invalid resolution width"
+                    rh  == null    -> error = "Invalid resolution height"
                     else -> onSave(EquipmentConfig(
                         id                 = initial?.id ?: 0L,
                         name               = name.trim(),
                         focalLength        = fl,
                         aperture           = ap,
                         focalReducerFactor = frf,
-                        sensorWidth        = sw,
-                        sensorHeight       = sh
+                        pixelSize          = ps,
+                        resolutionWidth    = rw,
+                        resolutionHeight   = rh
                     ))
                 }
             }) { Text("Save") }
