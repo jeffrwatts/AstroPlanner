@@ -5,6 +5,12 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
+data class GrsTimings(
+    val followingLimbD: Double,   // GRS first visible at following (eastern) limb
+    val transitD: Double,          // GRS crosses central meridian
+    val precedingLimbD: Double    // GRS last visible at preceding (western) limb
+)
+
 data class JupiterMoonPosition(
     val name: String,
     val xJR: Double,   // East-West offset in Jupiter radii (+ = West = right with N-up, sky-chart convention)
@@ -89,5 +95,38 @@ object JupiterMoonCalculator {
         val grsVisible = abs(grsCmDiff) < 90.0
 
         return JupiterSystemState(moons, grsVisible, grsCmDiff)
+    }
+
+    /**
+     * Compute the next (or current) GRS visibility window for the given time.
+     *
+     * If the GRS is currently transiting (visible), the returned window covers that
+     * transit. Otherwise, returns the next upcoming window.
+     */
+    fun grsTimings(d: Double): GrsTimings {
+        val jd = d + 2451545.0
+        val jupMean  = norm360((jd - 2455636.938) * 360.0 / 4332.89709)
+        val eqnCtr   = 5.55 * sin(toRad(jupMean))
+        val angle    = norm360((jd - 2451870.628) * 360.0 / 398.884 - eqnCtr)
+        val correction = 11.0 * sin(toRad(angle)) + 5.0 * cos(toRad(angle)) -
+                          1.25 * cos(toRad(jupMean)) - eqnCtr
+        val cmII = norm360(181.62 + 870.1869147 * jd + correction)
+        val grsLon   = norm360(85.0 + (1.75 / 30.0) * (d - 9527.5))
+        val grsCmDiff = normPM180(grsLon - cmII)
+
+        // Days to transit: negative if GRS is currently visible (transit just passed)
+        val daysToTransit = when {
+            grsCmDiff >= 0          -> grsCmDiff / 870.1869147
+            abs(grsCmDiff) < 90.0  -> grsCmDiff / 870.1869147   // in progress
+            else                   -> (grsCmDiff + 360.0) / 870.1869147
+        }
+
+        val transitD   = d + daysToTransit
+        val halfWindow = 90.0 / 870.1869147
+        return GrsTimings(
+            followingLimbD = transitD - halfWindow,
+            transitD       = transitD,
+            precedingLimbD = transitD + halfWindow
+        )
     }
 }
