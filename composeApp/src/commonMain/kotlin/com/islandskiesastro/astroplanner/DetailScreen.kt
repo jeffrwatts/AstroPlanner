@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import kotlinx.datetime.TimeZone
 import okio.Path.Companion.toPath
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -37,7 +38,8 @@ internal fun DetailScreen(
     location: LocationData?,
     observingD: Double,
     onBack: () -> Unit = {},
-    onBackActionChanged: ((() -> Unit)?) -> Unit = {}
+    onBackActionChanged: ((() -> Unit)?) -> Unit = {},
+    timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     val twilightTimes = remember(location?.latitude, location?.longitude, observingD) {
         if (location != null)
@@ -128,7 +130,7 @@ internal fun DetailScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Visibility Tonight \u2014 ${AstronomyService.dToLocalDateString(observingD)}",
+                    "Visibility Tonight \u2014 ${AstronomyService.dToLocalDateString(observingD, timeZone)}",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(Modifier.height(6.dp))
@@ -139,7 +141,7 @@ internal fun DetailScreen(
                     val moonPct = (AstronomyService.getMoonIllumination(eveD) * 100).roundToInt()
 
                     Text(
-                        "Astro night:  ${AstronomyService.dToLocalTimeString(eveD)} – ${AstronomyService.dToLocalTimeString(mornD)}",
+                        "Astro night:  ${AstronomyService.dToLocalTimeString(eveD, timeZone)} – ${AstronomyService.dToLocalTimeString(mornD, timeZone)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -150,10 +152,10 @@ internal fun DetailScreen(
                     )
 
                     val moonRiseText = moonRiseD?.let {
-                        "Moonrise: ${AstronomyService.dToLocalTimeString(it)}"
+                        "Moonrise: ${AstronomyService.dToLocalTimeString(it, timeZone)}"
                     }
                     val moonSetText = moonSetD?.let {
-                        "Moonset: ${AstronomyService.dToLocalTimeString(it)}"
+                        "Moonset: ${AstronomyService.dToLocalTimeString(it, timeZone)}"
                     }
                     when {
                         moonRiseText != null && moonSetText != null ->
@@ -202,7 +204,8 @@ internal fun DetailScreen(
                     observingD = observingD,
                     modifier   = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .height(200.dp),
+                    timeZone   = timeZone
                 )
                 Spacer(Modifier.height(16.dp))
             }

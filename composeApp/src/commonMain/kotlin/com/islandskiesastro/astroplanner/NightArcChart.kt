@@ -41,7 +41,8 @@ internal fun NightArcChart(
     skyObj: SkyObject,
     location: LocationData,
     observingD: Double,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     val twilightTimes = remember(location.latitude, location.longitude, observingD) {
         AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, observingD)
@@ -57,8 +58,8 @@ internal fun NightArcChart(
         return
     }
 
-    val chartData = remember(skyObj.obj.objectId, location.latitude, location.longitude, observingD) {
-        computeNightChartData(skyObj, location, twilightTimes.first, twilightTimes.second)
+    val chartData = remember(skyObj.obj.objectId, location.latitude, location.longitude, observingD, timeZone) {
+        computeNightChartData(skyObj, location, twilightTimes.first, twilightTimes.second, timeZone)
     }
 
     val gridColor  = Color.White.copy(alpha = 0.25f)
@@ -173,7 +174,8 @@ private fun computeNightChartData(
     skyObj: SkyObject,
     location: LocationData,
     twilightEndD: Double,
-    twilightStartD: Double
+    twilightStartD: Double,
+    timeZone: TimeZone = TimeZone.currentSystemDefault()
 ): NightChartData {
     val lat = location.latitude
     val lon = location.longitude
@@ -211,7 +213,7 @@ private fun computeNightChartData(
     val startMs = dToEpochMs(twilightEndD)
     val endMs   = dToEpochMs(twilightStartD)
     val totalMs = (endMs - startMs).toFloat()
-    val tz = TimeZone.currentSystemDefault()
+    val tz = timeZone
     val hourMarkers = mutableListOf<Pair<Float, String>>()
     val seen = mutableSetOf<Int>()
     // Floor to the nearest UTC minute so every minute==0 boundary is guaranteed to be visited.

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import okio.Path.Companion.toPath
+import kotlinx.datetime.TimeZone
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -66,7 +67,8 @@ fun SkyPlannerScreen(
     hasLocationPermission: Boolean,
     repository: CelestialObjectRepository,
     onBackActionChanged: ((() -> Unit)?) -> Unit = {},
-    onTitleChanged: (String?) -> Unit = {}
+    onTitleChanged: (String?) -> Unit = {},
+    timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     var showRecommendedOnly by remember { mutableStateOf(true) }
     var skyObjects by remember { mutableStateOf<List<SkyObject>>(emptyList()) }
@@ -132,7 +134,7 @@ fun SkyPlannerScreen(
                 Pair(obj.ra, obj.dec)
             }
             val altAzm = AstronomyService.getAltAzmForD(ra, dec, lat, lon, d)
-            val transit = AstronomyService.getMeridianTransitForD(ra, lon, lat, d)
+            val transit = AstronomyService.getMeridianTransitForD(ra, lon, lat, d, timeZone)
             SkyObject(obj.copy(ra = ra, dec = dec), altAzm.altitude, altAzm.azimuth, transit)
         }.sortedByDescending { it.altitude }
 
@@ -148,7 +150,8 @@ fun SkyPlannerScreen(
             location            = location,
             observingD          = currentD,
             onBack              = { selectedObject = null },
-            onBackActionChanged = onBackActionChanged
+            onBackActionChanged = onBackActionChanged,
+            timeZone            = timeZone
         )
         return
     }
@@ -201,7 +204,7 @@ fun SkyPlannerScreen(
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous day")
             }
             Text(
-                AstronomyService.dToLocalDateString(currentD),
+                AstronomyService.dToLocalDateString(currentD, timeZone),
                 modifier = Modifier.widthIn(min = 100.dp),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium
@@ -254,7 +257,7 @@ fun SkyPlannerScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text(
-                        AstronomyService.dToLocalTimeString(currentD),
+                        AstronomyService.dToLocalTimeString(currentD, timeZone),
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
@@ -263,8 +266,8 @@ fun SkyPlannerScreen(
 
         AnimatedVisibility(visible = moonInfo != null) {
             if (moonInfo != null) {
-                val riseText = moonInfo.riseD?.let { "Moonrise: ${AstronomyService.dToLocalTimeString(it)}" }
-                val setText  = moonInfo.setD?.let  { "Moonset: ${AstronomyService.dToLocalTimeString(it)}" }
+                val riseText = moonInfo.riseD?.let { "Moonrise: ${AstronomyService.dToLocalTimeString(it, timeZone)}" }
+                val setText  = moonInfo.setD?.let  { "Moonset: ${AstronomyService.dToLocalTimeString(it, timeZone)}" }
                 val riseSetText = when {
                     riseText != null && setText != null -> "$riseText   $setText"
                     riseText != null                   -> riseText

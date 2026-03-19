@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +45,15 @@ fun MainScreen(
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val location by locationService.location.collectAsState()
+    var useGpsLocation     by rememberSaveable { mutableStateOf(true) }
+    var savedLocationIndex by rememberSaveable { mutableIntStateOf(0) }
+
+    val effectiveLocation: LocationData? = if (useGpsLocation) location
+        else SAVED_LOCATIONS[savedLocationIndex].toLocationData()
+
+    val effectiveTimeZone: TimeZone = if (useGpsLocation) TimeZone.currentSystemDefault()
+        else TimeZone.of(SAVED_LOCATIONS[savedLocationIndex].timeZoneId)
+
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -104,15 +114,21 @@ fun MainScreen(
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 when (Screen.all[selectedIndex]) {
                     Screen.SkyPlanner -> SkyPlannerScreen(
-                        location, hasLocationPermission, repository,
+                        effectiveLocation, hasLocationPermission, repository,
                         onBackActionChanged = { backAction = it },
-                        onTitleChanged = { detailTitle = it }
+                        onTitleChanged = { detailTitle = it },
+                        timeZone = effectiveTimeZone
                     )
-                    Screen.Jupiter    -> JupiterScreen(location, hasLocationPermission)
-                    Screen.Info       -> InfoScreen(location, hasLocationPermission)
-                    Screen.AltAzm     -> AltAzmScreen(orientationService, location, hasLocationPermission)
+                    Screen.Jupiter    -> JupiterScreen(effectiveLocation, hasLocationPermission, timeZone = effectiveTimeZone)
+                    Screen.Info       -> InfoScreen(effectiveLocation, hasLocationPermission, timeZone = effectiveTimeZone)
+                    Screen.AltAzm     -> AltAzmScreen(orientationService, effectiveLocation, hasLocationPermission)
                     Screen.Update     -> UpdateScreen(repository)
-                    Screen.Settings   -> SettingsScreen(location, hasLocationPermission)
+                    Screen.Settings   -> SettingsScreen(
+                        useGpsLocation     = useGpsLocation,
+                        savedLocationIndex = savedLocationIndex,
+                        onUseGpsChanged    = { useGpsLocation = it },
+                        onSavedIndexChanged = { savedLocationIndex = it }
+                    )
                 }
             }
         }

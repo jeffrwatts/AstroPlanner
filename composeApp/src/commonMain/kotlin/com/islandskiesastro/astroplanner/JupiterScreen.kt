@@ -37,13 +37,15 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.datetime.TimeZone
 import kotlin.math.sin
 import kotlin.math.PI
 
 @Composable
 fun JupiterScreen(
     location: LocationData?,
-    hasLocationPermission: Boolean
+    hasLocationPermission: Boolean,
+    timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     var observingD by remember { mutableStateOf<Double?>(null) }
     var sliderTwilightTimes by remember { mutableStateOf<Pair<Double, Double>?>(null) }
@@ -81,7 +83,7 @@ fun JupiterScreen(
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous day")
             }
             Text(
-                AstronomyService.dToLocalDateString(currentD),
+                AstronomyService.dToLocalDateString(currentD, timeZone),
                 modifier = Modifier.widthIn(min = 100.dp),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium
@@ -120,7 +122,7 @@ fun JupiterScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text(
-                        AstronomyService.dToLocalTimeString(currentD),
+                        AstronomyService.dToLocalTimeString(currentD, timeZone),
                         style = MaterialTheme.typography.labelSmall
                     )
                 }

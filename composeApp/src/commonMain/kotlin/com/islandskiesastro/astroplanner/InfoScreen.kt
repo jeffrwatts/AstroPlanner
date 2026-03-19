@@ -38,7 +38,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 @Composable
-fun InfoScreen(location: LocationData?, hasLocationPermission: Boolean) {
+fun InfoScreen(location: LocationData?, hasLocationPermission: Boolean, timeZone: TimeZone = TimeZone.currentSystemDefault()) {
     var now by remember { mutableStateOf(Clock.System.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -50,7 +50,7 @@ fun InfoScreen(location: LocationData?, hasLocationPermission: Boolean) {
     var flipHorizontal by remember { mutableStateOf(false) }
     var flipVertical   by remember { mutableStateOf(false) }
 
-    val local   = now.toLocalDateTime(TimeZone.currentSystemDefault())
+    val local   = now.toLocalDateTime(timeZone)
     val timeStr = "${local.hour.pad2()}:${local.minute.pad2()}:${local.second.pad2()}"
     val dateStr = "${local.monthNumber.pad2()}/${local.dayOfMonth.pad2()}/${local.year}"
 
@@ -72,7 +72,9 @@ fun InfoScreen(location: LocationData?, hasLocationPermission: Boolean) {
                 Text("Latitude:  ${location.latitude.toDms(isLat = true)}",  style = MaterialTheme.typography.bodyLarge)
                 Text("Longitude: ${location.longitude.toDms(isLat = false)}", style = MaterialTheme.typography.bodyLarge)
                 Text("Altitude:  ${location.altitude.format(1)} m",          style = MaterialTheme.typography.bodyLarge)
-                Text("Accuracy:  ${location.accuracy.format(1)} m",          style = MaterialTheme.typography.bodyLarge)
+                if (location.accuracy != 0.0) {
+                    Text("Accuracy:  ${location.accuracy.format(1)} m",       style = MaterialTheme.typography.bodyLarge)
+                }
 
                 Spacer(Modifier.height(20.dp))
 

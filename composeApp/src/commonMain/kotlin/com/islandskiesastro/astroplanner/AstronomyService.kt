@@ -187,7 +187,7 @@ object AstronomyService {
      * @param lat Observer's latitude (unused in the calculation but kept for API symmetry).
      * @return Next transit time formatted as `"h:mm am"` or `"h:mm pm"`.
      */
-    fun getMeridianTransit(ra: Double, lon: Double, lat: Double): String {
+    fun getMeridianTransit(ra: Double, lon: Double, lat: Double, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
         val nowMs = Clock.System.now().toEpochMilliseconds()
         val jd    = jdFromMs(nowMs)
         val gmst  = gmstDeg(jd)
@@ -205,7 +205,7 @@ object AstronomyService {
             ((siderealDegUntilTransit / 360.0) * 23.9344696 * 3_600_000.0).toLong()
 
         val transitInstant = Instant.fromEpochMilliseconds(nowMs + solarMsUntilTransit)
-        val ldt = transitInstant.toLocalDateTime(TimeZone.currentSystemDefault())
+        val ldt = transitInstant.toLocalDateTime(timeZone)
 
         val hour   = ldt.hour
         val minute = ldt.minute
@@ -222,7 +222,7 @@ object AstronomyService {
      * Identical to [getMeridianTransit] but uses the provided J2000 epoch offset [d]
      * instead of the current time.
      */
-    fun getMeridianTransitForD(ra: Double, lon: Double, lat: Double, d: Double): String {
+    fun getMeridianTransitForD(ra: Double, lon: Double, lat: Double, d: Double, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
         val nowMs = ((d + 10957.5) * 86_400_000.0).toLong()
         val jd    = d + 2_451_545.0
         val gmst  = gmstDeg(jd)
@@ -237,7 +237,7 @@ object AstronomyService {
             ((siderealDegUntilTransit / 360.0) * 23.9344696 * 3_600_000.0).toLong()
 
         val transitInstant = Instant.fromEpochMilliseconds(nowMs + solarMsUntilTransit)
-        val ldt = transitInstant.toLocalDateTime(TimeZone.currentSystemDefault())
+        val ldt = transitInstant.toLocalDateTime(timeZone)
 
         val hour   = ldt.hour
         val minute = ldt.minute
@@ -909,9 +909,9 @@ object AstronomyService {
      * @param d Days from J2000.0.
      * @return Time string in the device's current timezone.
      */
-    internal fun dToLocalTimeString(d: Double): String {
+    internal fun dToLocalTimeString(d: Double, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
         val ms  = ((d + 10957.5) * 86_400_000.0).toLong()
-        val ldt = Instant.fromEpochMilliseconds(ms).toLocalDateTime(TimeZone.currentSystemDefault())
+        val ldt = Instant.fromEpochMilliseconds(ms).toLocalDateTime(timeZone)
         val h   = ldt.hour
         val ampm  = if (h < 12) "am" else "pm"
         val h12   = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
@@ -924,9 +924,9 @@ object AstronomyService {
      * @param d Days from J2000.0.
      * @return Date string in the device's current timezone.
      */
-    fun dToLocalDateString(d: Double): String {
+    fun dToLocalDateString(d: Double, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
         val ms  = ((d + 10957.5) * 86_400_000.0).toLong()
-        val ldt = Instant.fromEpochMilliseconds(ms).toLocalDateTime(TimeZone.currentSystemDefault())
+        val ldt = Instant.fromEpochMilliseconds(ms).toLocalDateTime(timeZone)
         val dow = when (ldt.dayOfWeek) {
             DayOfWeek.MONDAY    -> "Mon"
             DayOfWeek.TUESDAY   -> "Tue"
