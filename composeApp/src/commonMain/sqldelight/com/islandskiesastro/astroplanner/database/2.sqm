@@ -1,0 +1,9 @@
+CREATE TABLE equipmentConfig (
+    id                 INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name               TEXT    NOT NULL,
+    focalLength        REAL    NOT NULL,
+    aperture           REAL    NOT NULL,
+    focalReducerFactor REAL    NOT NULL,
+    sensorWidth        REAL    NOT NULL,
+    sensorHeight       REAL    NOT NULL
+);

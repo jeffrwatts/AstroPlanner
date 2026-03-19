@@ -66,6 +66,7 @@ fun SkyPlannerScreen(
     location: LocationData?,
     hasLocationPermission: Boolean,
     repository: CelestialObjectRepository,
+    equipmentRepository: EquipmentRepository,
     onBackActionChanged: ((() -> Unit)?) -> Unit = {},
     onTitleChanged: (String?) -> Unit = {},
     timeZone: TimeZone = TimeZone.currentSystemDefault()
@@ -149,6 +150,7 @@ fun SkyPlannerScreen(
             image               = selectedObject!!.second,
             location            = location,
             observingD          = currentD,
+            equipmentRepository = equipmentRepository,
             onBack              = { selectedObject = null },
             onBackActionChanged = onBackActionChanged,
             timeZone            = timeZone

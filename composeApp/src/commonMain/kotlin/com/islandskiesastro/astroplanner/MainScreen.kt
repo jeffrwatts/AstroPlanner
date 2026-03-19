@@ -41,7 +41,8 @@ fun MainScreen(
     locationService: LocationService,
     orientationService: OrientationService,
     hasLocationPermission: Boolean,
-    repository: CelestialObjectRepository
+    repository: CelestialObjectRepository,
+    equipmentRepository: EquipmentRepository
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val location by locationService.location.collectAsState()
@@ -115,6 +116,7 @@ fun MainScreen(
                 when (Screen.all[selectedIndex]) {
                     Screen.SkyPlanner -> SkyPlannerScreen(
                         effectiveLocation, hasLocationPermission, repository,
+                        equipmentRepository = equipmentRepository,
                         onBackActionChanged = { backAction = it },
                         onTitleChanged = { detailTitle = it },
                         timeZone = effectiveTimeZone
@@ -124,10 +126,11 @@ fun MainScreen(
                     Screen.AltAzm     -> AltAzmScreen(orientationService, effectiveLocation, hasLocationPermission)
                     Screen.Update     -> UpdateScreen(repository)
                     Screen.Settings   -> SettingsScreen(
-                        useGpsLocation     = useGpsLocation,
-                        savedLocationIndex = savedLocationIndex,
-                        onUseGpsChanged    = { useGpsLocation = it },
-                        onSavedIndexChanged = { savedLocationIndex = it }
+                        useGpsLocation      = useGpsLocation,
+                        savedLocationIndex  = savedLocationIndex,
+                        onUseGpsChanged     = { useGpsLocation = it },
+                        onSavedIndexChanged = { savedLocationIndex = it },
+                        equipmentRepository = equipmentRepository
                     )
                 }
             }

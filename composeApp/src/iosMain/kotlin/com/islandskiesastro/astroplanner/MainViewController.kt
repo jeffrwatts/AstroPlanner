@@ -9,5 +9,6 @@ fun MainViewController() = ComposeUIViewController {
     val driverFactory = remember { DatabaseDriverFactory() }
     val imageStorage = remember { ImageStorage() }
     val repository = remember { CelestialObjectRepository(driverFactory, imageStorage) }
-    App(locationService, orientationService, hasLocationPermission = true, repository = repository)
+    val equipmentRepository = remember { EquipmentRepository(driverFactory) }
+    App(locationService, orientationService, hasLocationPermission = true, repository = repository, equipmentRepository = equipmentRepository)
 }

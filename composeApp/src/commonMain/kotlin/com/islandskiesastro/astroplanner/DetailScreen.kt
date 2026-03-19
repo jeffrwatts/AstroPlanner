@@ -37,6 +37,7 @@ internal fun DetailScreen(
     image: CelestialObjectImage?,
     location: LocationData?,
     observingD: Double,
+    equipmentRepository: EquipmentRepository,
     onBack: () -> Unit = {},
     onBackActionChanged: ((() -> Unit)?) -> Unit = {},
     timeZone: TimeZone = TimeZone.currentSystemDefault()
@@ -54,7 +55,7 @@ internal fun DetailScreen(
     }
 
     if (showFov) {
-        FieldOfViewScreen(skyObj = skyObj, onBack = { showFov = false })
+        FieldOfViewScreen(skyObj = skyObj, equipmentRepository = equipmentRepository, onBack = { showFov = false })
         return
     }
 

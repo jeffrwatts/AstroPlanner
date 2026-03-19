@@ -1,29 +1,49 @@
 package com.islandskiesastro.astroplanner
 
-data class DefaultEquipment(
-    val telescope: Telescope,
-    val opticalElement: OpticalElement,
-    val camera: Camera
-)
+import com.islandskiesastro.astroplanner.database.AstroDatabase
+import com.islandskiesastro.astroplanner.database.EquipmentConfig as EquipmentConfigRow
 
-object EquipmentRepository {
-    val telescopes = listOf(
-        Telescope("Celestron C8", focalLength = 2032.0, aperture = 203.2),
-        Telescope("RedCat 61",    focalLength = 360.0,  aperture = 61.0)
-    )
-    val cameras = listOf(
-        Camera("ZWO ASI294MC Pro",  19.1, 13.0, 4.63, 4144, 2822),
-        Camera("ZWO ASI2600MC Duo", 23.5, 15.7, 3.76, 6248, 4176)
-    )
-    val opticalElements = listOf(
-        OpticalElement("None",          factor = 1.0),
-        OpticalElement("0.63x Reducer", factor = 0.63)
-    )
+class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
+    private val db      = AstroDatabase(driverFactory.createDriver())
+    private val queries = db.equipmentConfigQueries
 
-    // Default setup — will be user-configurable in the future
-    val defaultEquipment = DefaultEquipment(
-        telescope     = telescopes.first { it.displayName == "Celestron C8" },
-        opticalElement = opticalElements.first { it.displayName == "0.63x Reducer" },
-        camera        = cameras.first { it.displayName == "ZWO ASI294MC Pro" }
+    init {
+        // Seed defaults on first run so FOV screen is immediately usable
+        if (queries.selectAll().executeAsList().isEmpty()) {
+            queries.insert("C8 + 0.63x Reducer + ASI294MC Pro", 2032.0, 203.2, 0.63, 19.1, 13.0)
+            queries.insert("RedCat 61 + ASI2600MC Duo",          360.0,  61.0,  1.0,  23.5, 15.7)
+        }
+    }
+
+    fun getAll(): List<EquipmentConfig> =
+        queries.selectAll().executeAsList().map { it.toDomain() }
+
+    fun insert(config: EquipmentConfig) {
+        queries.insert(
+            config.name, config.focalLength, config.aperture,
+            config.focalReducerFactor, config.sensorWidth, config.sensorHeight
+        )
+    }
+
+    fun update(config: EquipmentConfig) {
+        queries.update(
+            config.name, config.focalLength, config.aperture,
+            config.focalReducerFactor, config.sensorWidth, config.sensorHeight,
+            config.id
+        )
+    }
+
+    fun delete(id: Long) {
+        queries.deleteById(id)
+    }
+
+    private fun EquipmentConfigRow.toDomain() = EquipmentConfig(
+        id                 = id,
+        name               = name,
+        focalLength        = focalLength,
+        aperture           = aperture,
+        focalReducerFactor = focalReducerFactor,
+        sensorWidth        = sensorWidth,
+        sensorHeight       = sensorHeight
     )
 }

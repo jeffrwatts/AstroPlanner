@@ -1,12 +1,11 @@
 package com.islandskiesastro.astroplanner
 
-data class Telescope(val displayName: String, val focalLength: Double, val aperture: Double)
-
-data class Camera(
-    val displayName: String,
-    val sensorWidth: Double, val sensorHeight: Double,
-    val pixelSize: Double,
-    val resolutionWidth: Int, val resolutionHeight: Int
+data class EquipmentConfig(
+    val id: Long = 0L,
+    val name: String,
+    val focalLength: Double,          // mm — telescope focal length
+    val aperture: Double,             // mm — telescope aperture (display only)
+    val focalReducerFactor: Double,   // 1.0 = no reducer
+    val sensorWidth: Double,          // mm
+    val sensorHeight: Double          // mm
 )
-
-data class OpticalElement(val displayName: String, val factor: Double)

@@ -60,14 +60,10 @@ import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.roundToInt
 
-private fun computeFov(
-    telescope: Telescope,
-    optElem: OpticalElement,
-    camera: Camera
-): Pair<Double, Double> {
-    val fl   = telescope.focalLength * optElem.factor
-    val fovW = 2.0 * atan(camera.sensorWidth  / (2.0 * fl)) * (180.0 / PI)
-    val fovH = 2.0 * atan(camera.sensorHeight / (2.0 * fl)) * (180.0 / PI)
+private fun computeFov(config: EquipmentConfig): Pair<Double, Double> {
+    val fl   = config.focalLength * config.focalReducerFactor
+    val fovW = 2.0 * atan(config.sensorWidth  / (2.0 * fl)) * (180.0 / PI)
+    val fovH = 2.0 * atan(config.sensorHeight / (2.0 * fl)) * (180.0 / PI)
     return Pair(fovW, fovH)
 }
 
@@ -92,18 +88,14 @@ private val scalingOptions = listOf("Linear", "Log", "Sqrt", "HistEq", "LogLog")
 @Composable
 internal fun FieldOfViewScreen(
     skyObj: SkyObject,
+    equipmentRepository: EquipmentRepository,
     onBack: () -> Unit
 ) {
-    var selectedTelescope  by remember { mutableStateOf(EquipmentRepository.defaultEquipment.telescope) }
-    var selectedOptElem    by remember { mutableStateOf(EquipmentRepository.defaultEquipment.opticalElement) }
-    var selectedCamera     by remember { mutableStateOf(EquipmentRepository.defaultEquipment.camera) }
+    val configs            = remember { equipmentRepository.getAll() }
+    var selectedConfig     by remember { mutableStateOf(configs.firstOrNull()) }
     var scaling            by remember { mutableStateOf("Linear") }
     var imageSizeDeg       by remember {
-        val (w, h) = computeFov(
-            EquipmentRepository.defaultEquipment.telescope,
-            EquipmentRepository.defaultEquipment.opticalElement,
-            EquipmentRepository.defaultEquipment.camera
-        )
+        val (w, h) = selectedConfig?.let { computeFov(it) } ?: Pair(1.0, 1.0)
         mutableStateOf((max(w, h) * 1.1).toFloat())
     }
     var imageBytes         by remember { mutableStateOf<ByteArray?>(null) }
@@ -132,7 +124,7 @@ internal fun FieldOfViewScreen(
     val scope = rememberCoroutineScope()
 
     // Live FOV from current equipment (updates rectangle immediately on equipment change)
-    val (fovW, fovH) = computeFov(selectedTelescope, selectedOptElem, selectedCamera)
+    val (fovW, fovH) = selectedConfig?.let { computeFov(it) } ?: Pair(0.0, 0.0)
 
     suspend fun fetchImage() {
         val scl     = scaling
@@ -294,29 +286,21 @@ internal fun FieldOfViewScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Spacer(Modifier.height(4.dp))
-            EquipmentRow(
-                label = "Telescope",
-                options = EquipmentRepository.telescopes,
-                selected = selectedTelescope,
-                displayName = { it.displayName },
-                onSelect = { selectedTelescope = it }
-            )
-            Spacer(Modifier.height(8.dp))
-            EquipmentRow(
-                label = "Optical Element",
-                options = EquipmentRepository.opticalElements,
-                selected = selectedOptElem,
-                displayName = { it.displayName },
-                onSelect = { selectedOptElem = it }
-            )
-            Spacer(Modifier.height(8.dp))
-            EquipmentRow(
-                label = "Camera",
-                options = EquipmentRepository.cameras,
-                selected = selectedCamera,
-                displayName = { it.displayName },
-                onSelect = { selectedCamera = it }
-            )
+            if (configs.isEmpty()) {
+                Text(
+                    "No equipment configured — add one in Settings",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                EquipmentRow(
+                    label = "Equipment",
+                    options = configs,
+                    selected = selectedConfig ?: configs.first(),
+                    displayName = { it.name },
+                    onSelect = { selectedConfig = it }
+                )
+            }
             Spacer(Modifier.height(8.dp))
             EquipmentRow(
                 label = "Scaling",

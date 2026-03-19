@@ -13,6 +13,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var locationService: LocationService
     private lateinit var orientationService: OrientationService
     private lateinit var repository: CelestialObjectRepository
+    private lateinit var equipmentRepository: EquipmentRepository
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
         val driverFactory = DatabaseDriverFactory(applicationContext)
         val imageStorage = ImageStorage(applicationContext)
         repository = CelestialObjectRepository(driverFactory, imageStorage)
+        equipmentRepository = EquipmentRepository(driverFactory)
 
         if (hasLocationPermission()) {
             showApp(true)
@@ -49,7 +51,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showApp(hasPermission: Boolean) {
         setContent {
-            App(locationService, orientationService, hasPermission, repository)
+            App(locationService, orientationService, hasPermission, repository, equipmentRepository)
         }
     }
 }
