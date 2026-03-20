@@ -1,8 +1,10 @@
 package com.islandskiesastro.astroplanner
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +40,9 @@ internal fun DetailScreen(
     location: LocationData?,
     observingD: Double,
     equipmentRepository: EquipmentRepository,
+    planRepository: PlanRepository? = null,
+    celestialObjectRepository: CelestialObjectRepository? = null,
+    locationName: String = "GPS Location",
     onBack: () -> Unit = {},
     onBackActionChanged: ((() -> Unit)?) -> Unit = {},
     timeZone: TimeZone = TimeZone.currentSystemDefault()
@@ -48,14 +53,34 @@ internal fun DetailScreen(
         else null
     }
 
-    var showFov by remember { mutableStateOf(false) }
+    var showFov          by remember { mutableStateOf(false) }
+    var showPlanCreation by remember { mutableStateOf(false) }
 
-    LaunchedEffect(showFov) {
-        onBackActionChanged(if (showFov) ({ showFov = false }) else onBack)
+    LaunchedEffect(showFov, showPlanCreation) {
+        when {
+            showFov          -> onBackActionChanged { showFov = false }
+            showPlanCreation -> onBackActionChanged { showPlanCreation = false }
+            else             -> onBackActionChanged(onBack)
+        }
     }
 
     if (showFov) {
         FieldOfViewScreen(skyObj = skyObj, equipmentRepository = equipmentRepository, onBack = { showFov = false })
+        return
+    }
+
+    if (showPlanCreation && planRepository != null && celestialObjectRepository != null) {
+        PlanCreationScreen(
+            preFill             = skyObj.obj,
+            location            = location,
+            locationName        = locationName,
+            equipmentRepository = equipmentRepository,
+            repository          = celestialObjectRepository,
+            planRepository      = planRepository,
+            timeZone            = timeZone,
+            onBack              = { showPlanCreation = false },
+            onPlanSaved         = { showPlanCreation = false }
+        )
         return
     }
 
@@ -122,8 +147,15 @@ internal fun DetailScreen(
             }
 
             Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = { showFov = true }) {
-                Text("Field Of View")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showFov = true }) {
+                    Text("Field Of View")
+                }
+                if (planRepository != null) {
+                    OutlinedButton(onClick = { showPlanCreation = true }) {
+                        Text("Plan")
+                    }
+                }
             }
 
             if (location != null) {

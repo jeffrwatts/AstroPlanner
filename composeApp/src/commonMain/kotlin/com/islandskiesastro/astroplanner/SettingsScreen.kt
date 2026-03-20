@@ -22,7 +22,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -48,10 +54,23 @@ fun SettingsScreen(
     savedLocationIndex: Int,
     onUseGpsChanged: (Boolean) -> Unit,
     onSavedIndexChanged: (Int) -> Unit,
-    equipmentRepository: EquipmentRepository
+    equipmentRepository: EquipmentRepository,
+    planRepository: PlanRepository
 ) {
     var configs by remember { mutableStateOf(equipmentRepository.getAll()) }
     fun reload() { configs = equipmentRepository.getAll() }
+
+    var apiKeyDraft by remember { mutableStateOf(planRepository.getApiKey()) }
+    var showApiKey  by remember { mutableStateOf(false) }
+
+    val filterList  = remember {
+        mutableStateListOf<String>().also { list ->
+            list.addAll(planRepository.getFilters().lines().filter { it.isNotBlank() })
+        }
+    }
+    var newFilterDraft by remember { mutableStateOf("") }
+
+    fun saveFilters() { planRepository.setFilters(filterList.joinToString("\n")) }
 
     // Dialog state: null = closed, null initial = Add, non-null initial = Edit
     var dialogInitial by remember { mutableStateOf<EquipmentConfig?>(null) }
@@ -77,67 +96,6 @@ fun SettingsScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // ── Location Source ───────────────────────────────────────────────────
-        Text(
-            "Location Source",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Use Device GPS", style = MaterialTheme.typography.bodyLarge)
-            Switch(checked = useGpsLocation, onCheckedChange = onUseGpsChanged)
-        }
-
-        AnimatedVisibility(visible = !useGpsLocation) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Saved Locations",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(2.dp))
-                SettingsList {
-                    SAVED_LOCATIONS.forEachIndexed { index, loc ->
-                        val selected = savedLocationIndex == index
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSavedIndexChanged(index) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(loc.displayName, style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    "${loc.latitude}°, ${loc.longitude}°  •  ${loc.timeZoneId}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (selected) {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                        if (index < SAVED_LOCATIONS.lastIndex) SettingsDivider()
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
         // ── Equipment Configurations ──────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -210,6 +168,170 @@ fun SettingsScreen(
                     if (index < configs.lastIndex) SettingsDivider()
                 }
             }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // ── Filter Inventory ──────────────────────────────────────────────────
+        Text(
+            "Filter Inventory",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        if (filterList.isEmpty()) {
+            Text(
+                "No filters added yet",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            SettingsList {
+                filterList.forEachIndexed { index, filter ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            filter,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        IconButton(onClick = {
+                            filterList.removeAt(index)
+                            saveFilters()
+                        }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Remove filter",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    if (index < filterList.lastIndex) SettingsDivider()
+                }
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = newFilterDraft,
+                onValueChange = { newFilterDraft = it },
+                label = { Text("Add filter") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = {
+                    val trimmed = newFilterDraft.trim()
+                    if (trimmed.isNotBlank() && !filterList.contains(trimmed)) {
+                        filterList.add(trimmed)
+                        saveFilters()
+                    }
+                    newFilterDraft = ""
+                }
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add filter")
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // ── Location Source ───────────────────────────────────────────────────
+        Text(
+            "Location Source",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Use Device GPS", style = MaterialTheme.typography.bodyLarge)
+            Switch(checked = useGpsLocation, onCheckedChange = onUseGpsChanged)
+        }
+
+        AnimatedVisibility(visible = !useGpsLocation) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Saved Locations",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(2.dp))
+                SettingsList {
+                    SAVED_LOCATIONS.forEachIndexed { index, loc ->
+                        val selected = savedLocationIndex == index
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSavedIndexChanged(index) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(loc.displayName, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "${loc.latitude}°, ${loc.longitude}°  •  ${loc.timeZoneId}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (selected) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        if (index < SAVED_LOCATIONS.lastIndex) SettingsDivider()
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // ── Anthropic API Key ─────────────────────────────────────────────────
+        Text(
+            "Anthropic API Key",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        OutlinedTextField(
+            value = apiKeyDraft,
+            onValueChange = { apiKeyDraft = it },
+            label = { Text("API Key") },
+            singleLine = true,
+            visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { showApiKey = !showApiKey }) {
+                    Icon(
+                        if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = if (showApiKey) "Hide key" else "Show key"
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(
+            onClick = { planRepository.setApiKey(apiKeyDraft.trim()) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Save API Key")
         }
     }
 }

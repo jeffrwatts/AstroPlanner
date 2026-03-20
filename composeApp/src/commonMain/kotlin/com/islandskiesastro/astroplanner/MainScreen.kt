@@ -42,7 +42,8 @@ fun MainScreen(
     orientationService: OrientationService,
     hasLocationPermission: Boolean,
     repository: CelestialObjectRepository,
-    equipmentRepository: EquipmentRepository
+    equipmentRepository: EquipmentRepository,
+    planRepository: PlanRepository
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val location by locationService.location.collectAsState()
@@ -54,6 +55,9 @@ fun MainScreen(
 
     val effectiveTimeZone: TimeZone = if (useGpsLocation) TimeZone.currentSystemDefault()
         else TimeZone.of(SAVED_LOCATIONS[savedLocationIndex].timeZoneId)
+
+    val locationName: String = if (useGpsLocation) "GPS Location"
+        else SAVED_LOCATIONS[savedLocationIndex].displayName
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -117,11 +121,22 @@ fun MainScreen(
                     Screen.SkyPlanner -> SkyPlannerScreen(
                         effectiveLocation, hasLocationPermission, repository,
                         equipmentRepository = equipmentRepository,
+                        planRepository      = planRepository,
+                        locationName        = locationName,
                         onBackActionChanged = { backAction = it },
-                        onTitleChanged = { detailTitle = it },
-                        timeZone = effectiveTimeZone
+                        onTitleChanged      = { detailTitle = it },
+                        timeZone            = effectiveTimeZone
                     )
                     Screen.Jupiter    -> JupiterScreen(effectiveLocation, hasLocationPermission, timeZone = effectiveTimeZone)
+                    Screen.Plans      -> PlansScreen(
+                        location            = effectiveLocation,
+                        locationName        = locationName,
+                        equipmentRepository = equipmentRepository,
+                        repository          = repository,
+                        planRepository      = planRepository,
+                        timeZone            = effectiveTimeZone,
+                        onBackActionChanged = { backAction = it }
+                    )
                     Screen.Info       -> InfoScreen(effectiveLocation, hasLocationPermission, timeZone = effectiveTimeZone)
                     Screen.AltAzm     -> AltAzmScreen(orientationService, effectiveLocation, hasLocationPermission)
                     Screen.Update     -> UpdateScreen(repository)
@@ -130,7 +145,8 @@ fun MainScreen(
                         savedLocationIndex  = savedLocationIndex,
                         onUseGpsChanged     = { useGpsLocation = it },
                         onSavedIndexChanged = { savedLocationIndex = it },
-                        equipmentRepository = equipmentRepository
+                        equipmentRepository = equipmentRepository,
+                        planRepository      = planRepository
                     )
                 }
             }

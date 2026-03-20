@@ -10,9 +10,10 @@ fun App(
     orientationService: OrientationService,
     hasLocationPermission: Boolean,
     repository: CelestialObjectRepository,
-    equipmentRepository: EquipmentRepository
+    equipmentRepository: EquipmentRepository,
+    planRepository: PlanRepository
 ) {
     MaterialTheme(colorScheme = darkColorScheme()) {
-        MainScreen(locationService, orientationService, hasLocationPermission, repository, equipmentRepository)
+        MainScreen(locationService, orientationService, hasLocationPermission, repository, equipmentRepository, planRepository)
     }
 }

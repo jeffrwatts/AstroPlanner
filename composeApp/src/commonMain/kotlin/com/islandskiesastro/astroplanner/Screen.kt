@@ -1,6 +1,7 @@
 package com.islandskiesastro.astroplanner
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Public
@@ -15,12 +16,13 @@ sealed class Screen(
 ) {
     object SkyPlanner : Screen("Astro Planner", Icons.Default.Star)
     object Jupiter    : Screen("Jupiter",        Icons.Default.Public)
+    object Plans      : Screen("Plans",           Icons.Default.AutoStories)
     object Info       : Screen("Info",           Icons.Default.MyLocation)
     object AltAzm     : Screen("Alt/Azm Tool",   Icons.Default.Explore)
     object Update     : Screen("Update",          Icons.Default.Refresh)
     object Settings   : Screen("Settings",        Icons.Default.Settings)
 
     companion object {
-        val all: List<Screen> = listOf(SkyPlanner, Jupiter, Info, AltAzm, Update, Settings)
+        val all: List<Screen> = listOf(SkyPlanner, Jupiter, Plans, Info, AltAzm, Update, Settings)
     }
 }

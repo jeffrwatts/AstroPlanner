@@ -1,5 +1,39 @@
+import java.util.Properties
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+// Read API keys from local.properties (gitignored — never committed)
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) localProps.load(localPropsFile.inputStream())
+val anthropicApiKey: String = localProps.getProperty("anthropic.api.key", "")
+
+// Configuration-cache-compatible task that generates ApiKeys.kt in build/
+abstract class GenerateApiKeysTask : DefaultTask() {
+    @get:Input abstract val anthropicKey: Property<String>
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val dir = outputDir.get().asFile
+        dir.mkdirs()
+        File(dir, "ApiKeys.kt").writeText(
+            "package com.islandskiesastro.astroplanner\n\n" +
+            "internal const val ANTHROPIC_API_KEY_BUILD = \"${anthropicKey.get()}\"\n"
+        )
+    }
+}
+
+val generateApiKeys by tasks.registering(GenerateApiKeysTask::class) {
+    anthropicKey.set(anthropicApiKey)
+    outputDir.set(layout.buildDirectory.dir("generated/source/apikeys/kotlin"))
+}
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -31,6 +65,9 @@ kotlin {
     }
 
     sourceSets {
+        commonMain {
+            kotlin.srcDir(generateApiKeys.map { layout.buildDirectory.dir("generated/source/apikeys/kotlin") })
+        }
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
@@ -58,6 +95,7 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.coil.compose)
+            implementation(libs.markdown.renderer)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native)
@@ -101,7 +139,7 @@ sqldelight {
     databases {
         create("AstroDatabase") {
             packageName.set("com.islandskiesastro.astroplanner.database")
-            version = 2
+            version = 7
         }
     }
 }

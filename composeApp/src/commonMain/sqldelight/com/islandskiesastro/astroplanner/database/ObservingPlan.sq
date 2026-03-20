@@ -1,0 +1,24 @@
+CREATE TABLE observingPlan (
+    id                INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    createdAtMs       INTEGER NOT NULL,
+    targetObjectId    TEXT    NOT NULL,
+    targetDisplayName TEXT    NOT NULL,
+    equipmentConfigId INTEGER NOT NULL,
+    equipmentSummary  TEXT    NOT NULL,
+    locationName      TEXT    NOT NULL,
+    locationAltitudeM REAL    NOT NULL,
+    bortleScale       INTEGER NOT NULL,
+    observingGoal     TEXT    NOT NULL,
+    availableMinutes  INTEGER NOT NULL,
+    planMarkdown      TEXT    NOT NULL
+);
+
+selectAll:
+SELECT * FROM observingPlan ORDER BY createdAtMs DESC;
+
+insert:
+INSERT INTO observingPlan (createdAtMs, targetObjectId, targetDisplayName, equipmentConfigId, equipmentSummary, locationName, locationAltitudeM, bortleScale, observingGoal, availableMinutes, planMarkdown)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM observingPlan WHERE id = ?;
