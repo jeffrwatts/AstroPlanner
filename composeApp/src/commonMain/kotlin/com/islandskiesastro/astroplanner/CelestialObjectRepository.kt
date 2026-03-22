@@ -21,7 +21,10 @@ data class DsoResponse(
     val type: String,
     val subType: String? = null,
     val constellation: String? = null,
-    val recommended: Boolean
+    val recommended: Boolean,
+    val magnitude: Double? = null,
+    val angularSizeMajor: Double? = null,
+    val angularSizeMinor: Double? = null
 )
 
 @Serializable
@@ -92,7 +95,10 @@ class CelestialObjectRepository(
                 type = ObjectType.PLANET.name,
                 subType = null,
                 constellation = "",
-                recommended = 1L
+                recommended = 1L,
+                magnitude = null,
+                angularSizeMajor = null,
+                angularSizeMinor = null
             )
         }
 
@@ -110,7 +116,10 @@ class CelestialObjectRepository(
                     type = dsoTypeToObjectType(dso.type).name,
                     subType = dso.subType,
                     constellation = dso.constellation,
-                    recommended = if (dso.recommended) 1L else 0L
+                    recommended = if (dso.recommended) 1L else 0L,
+                    magnitude = dso.magnitude,
+                    angularSizeMajor = dso.angularSizeMajor,
+                    angularSizeMinor = dso.angularSizeMinor
                 )
             }
         } catch (e: Exception) {

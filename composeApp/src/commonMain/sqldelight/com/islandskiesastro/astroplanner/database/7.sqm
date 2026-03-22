@@ -1,0 +1,3 @@
+ALTER TABLE celestialObject ADD COLUMN magnitude REAL;
+ALTER TABLE celestialObject ADD COLUMN angularSizeMajor REAL;
+ALTER TABLE celestialObject ADD COLUMN angularSizeMinor REAL;

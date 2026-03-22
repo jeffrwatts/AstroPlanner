@@ -139,7 +139,7 @@ sqldelight {
     databases {
         create("AstroDatabase") {
             packageName.set("com.islandskiesastro.astroplanner.database")
-            version = 7
+            version = 8
         }
     }
 }
