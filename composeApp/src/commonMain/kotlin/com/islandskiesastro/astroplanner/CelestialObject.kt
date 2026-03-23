@@ -11,5 +11,8 @@ data class CelestialObject(
     val type: ObjectType,
     val subType: String?,
     val constellation: String?,
-    val recommended: Boolean
+    val recommended: Boolean,
+    val magnitude: Double?,
+    val angularSizeMajor: Double?,
+    val angularSizeMinor: Double?
 )

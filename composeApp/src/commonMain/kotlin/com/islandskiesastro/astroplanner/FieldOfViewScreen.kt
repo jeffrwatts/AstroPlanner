@@ -81,6 +81,23 @@ private fun skyViewUrl(
     "?Position=$ra,$dec&Size=$sizeDeg&Pixels=1000&Rotation=$rotation" +
     "&Scaling=$scaling&Return=PNG&coordinates=J2000&Survey=DSS"
 
+private fun Double.formatRa(): String {
+    val hours = this / 15.0
+    val h = hours.toInt()
+    val m = ((hours - h) * 60).toInt()
+    val s = ((hours - h - m / 60.0) * 3600).toInt()
+    return "${h}h ${m}m ${s}s"
+}
+
+private fun Double.formatDec(): String {
+    val sign = if (this < 0) "-" else "+"
+    val a = kotlin.math.abs(this)
+    val d = a.toInt()
+    val m = ((a - d) * 60).toInt()
+    val s = ((a - d - m / 60.0) * 3600).toInt()
+    return "$sign${d}° ${m}' ${s}\""
+}
+
 private fun Double.fmt2(): String {
     val rounded = (this * 100).roundToInt().toDouble() / 100.0
     val str = rounded.toString()
@@ -289,6 +306,11 @@ internal fun FieldOfViewScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Text(
+                    "RA: ${displayedCenterRa.formatRa()}  Dec: ${displayedCenterDec.formatDec()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 

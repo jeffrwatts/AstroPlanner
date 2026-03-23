@@ -369,6 +369,14 @@ private fun buildPrompt(
     val typeStr = target.type.name.lowercase().replaceFirstChar { it.uppercase() } +
             (target.subType?.let { " / $it" } ?: "")
     val constellationStr = target.constellation?.let { "Constellation: $it\n" } ?: ""
+    val magnitudeStr = target.magnitude?.let { "• Magnitude: ${it.fmt1()}\n" } ?: ""
+    val angularSizeStr = when {
+        target.angularSizeMajor != null && target.angularSizeMinor != null ->
+            "• Angular size: ${target.angularSizeMajor.fmt1()}' × ${target.angularSizeMinor.fmt1()}'\n"
+        target.angularSizeMajor != null ->
+            "• Angular size: ${target.angularSizeMajor.fmt1()}'\n"
+        else -> ""
+    }
 
     val altStr = if (location != null)
         "• Altitude: ${location.altitude.toInt()}m ASL\n"
@@ -399,6 +407,7 @@ private fun buildPrompt(
 ${target.displayName} — $typeStr
 ${constellationStr}RA: ${target.ra.formatRa()}   Dec: ${target.dec.formatDec()}
 Tonight's meridian transit: $transitStr
+${magnitudeStr}${angularSizeStr}
 
 ## Available Equipment Configurations
 $equipmentSection

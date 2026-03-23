@@ -186,6 +186,9 @@ class CelestialObjectRepository(
         type = ObjectType.entries.find { it.name == type } ?: ObjectType.UNKNOWN,
         subType = subType,
         constellation = constellation,
-        recommended = recommended != 0L
+        recommended = recommended != 0L,
+        magnitude = magnitude,
+        angularSizeMajor = angularSizeMajor,
+        angularSizeMinor = angularSizeMinor
     )
 }
