@@ -104,7 +104,7 @@ class CelestialObjectRepository(
 
         onStatus("Fetching DSO data...")
         try {
-            val responseText = client.get(Config.DSO_URL).bodyAsText()
+            val responseText = client.get("${Config.DSO_URL}?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}").bodyAsText()
             val dsoList: List<DsoResponse> = json.decodeFromString(responseText)
             onStatus("DSO data loaded — ${dsoList.size} objects")
             dsoList.forEach { dso ->
@@ -131,7 +131,7 @@ class CelestialObjectRepository(
         try {
             onStatus("Fetching image list...")
             imageQueries.deleteAll()
-            val responseText = client.get(Config.IMAGES_URL).bodyAsText()
+            val responseText = client.get("${Config.IMAGES_URL}?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}").bodyAsText()
             val imageList: List<ImageResponse> = json.decodeFromString(responseText)
             onStatus("Downloading ${imageList.size} images...")
 
