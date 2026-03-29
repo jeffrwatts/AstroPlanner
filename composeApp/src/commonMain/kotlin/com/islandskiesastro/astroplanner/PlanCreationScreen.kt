@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,16 +18,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,7 +41,6 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun PlanCreationScreen(
     preFill: CelestialObject?,
@@ -59,7 +51,7 @@ internal fun PlanCreationScreen(
     planRepository: PlanRepository,
     timeZone: TimeZone,
     onBack: () -> Unit,
-    onPlanSaved: () -> Unit
+    onPlanGenerated: (ObservingPlan) -> Unit
 ) {
     val allObjects = remember { repository.getAllObjects() }
     val allConfigs = remember { equipmentRepository.getAll() }
@@ -69,15 +61,12 @@ internal fun PlanCreationScreen(
     var selectedTarget by remember { mutableStateOf(preFill) }
     var showDropdown   by remember { mutableStateOf(false) }
 
-    var bortleScale    by remember { mutableIntStateOf(5) }
-    var selectedModel  by remember { mutableStateOf(AnthropicService.Model.SONNET) }
-    var modelExpanded  by remember { mutableStateOf(false) }
-    val filters        = remember { planRepository.getFilters() }
+    var bortleScale by remember { mutableIntStateOf(5) }
+    val filters     = remember { planRepository.getFilters() }
 
-    var showPrompt    by remember { mutableStateOf(false) }
-    var isGenerating  by remember { mutableStateOf(false) }
-    var generatedPlan by remember { mutableStateOf<String?>(null) }
-    var errorMessage  by remember { mutableStateOf<String?>(null) }
+    var showPrompt   by remember { mutableStateOf(false) }
+    var isGenerating by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val currentPrompt = remember(selectedTarget, location, locationName, bortleScale, filters, timeZone) {
         val t = selectedTarget ?: return@remember null
@@ -168,47 +157,22 @@ internal fun PlanCreationScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         // ── Bortle Scale ──────────────────────────────────────────────────────
-        Text("Bortle Scale", style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            (1..9).forEach { b ->
-                FilterChip(
-                    selected = bortleScale == b,
-                    onClick  = { bortleScale = b },
-                    label    = { Text(b.toString()) }
-                )
-            }
-        }
-
-        // ── Model ─────────────────────────────────────────────────────────────
-        Text("Model", style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        ExposedDropdownMenuBox(
-            expanded = modelExpanded,
-            onExpandedChange = { modelExpanded = it },
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedTextField(
-                value = selectedModel.label,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(modelExpanded) },
-                modifier = Modifier
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth()
-            )
-            ExposedDropdownMenu(
-                expanded = modelExpanded,
-                onDismissRequest = { modelExpanded = false }
-            ) {
-                AnthropicService.Model.entries.forEach { model ->
-                    DropdownMenuItem(
-                        text = { Text(model.label) },
-                        onClick = { selectedModel = model; modelExpanded = false }
-                    )
-                }
-            }
+            Text("Bortle Scale", style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(bortleScale.toString(), style = MaterialTheme.typography.bodyMedium)
         }
+        Slider(
+            value = bortleScale.toFloat(),
+            onValueChange = { bortleScale = it.toInt() },
+            valueRange = 1f..9f,
+            steps = 7,
+            modifier = Modifier.fillMaxWidth()
+        )
 
         // ── Prompt preview ────────────────────────────────────────────────────
         Row(
@@ -259,12 +223,27 @@ internal fun PlanCreationScreen(
         Button(
             onClick = {
                 val prompt = currentPrompt ?: return@Button
+                val target = selectedTarget ?: return@Button
                 scope.launch {
-                    isGenerating  = true
-                    errorMessage  = null
-                    generatedPlan = null
-                    val result = AnthropicService.generatePlan(apiKey, prompt, selectedModel)
-                    result.onSuccess { generatedPlan = it }
+                    isGenerating = true
+                    errorMessage = null
+                    val result = AnthropicService.generatePlan(apiKey, prompt, AnthropicService.Model.OPUS)
+                    result.onSuccess { markdown ->
+                        val plan = ObservingPlan(
+                            createdAtMs       = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+                            targetObjectId    = target.objectId,
+                            targetDisplayName = target.displayName,
+                            equipmentConfigId = 0L,
+                            equipmentSummary  = "",
+                            locationName      = locationName,
+                            locationAltitudeM = location?.altitude ?: 0.0,
+                            bortleScale       = bortleScale,
+                            observingGoal     = "Imaging",
+                            availableMinutes  = 0,
+                            planMarkdown      = markdown
+                        )
+                        onPlanGenerated(plan)
+                    }
                     result.onFailure { errorMessage = it.message ?: "Unknown error" }
                     isGenerating = false
                 }
@@ -295,11 +274,27 @@ internal fun PlanCreationScreen(
             OutlinedButton(
                 onClick = {
                     val prompt = currentPrompt ?: return@OutlinedButton
+                    val target = selectedTarget ?: return@OutlinedButton
                     scope.launch {
-                        isGenerating  = true
-                        errorMessage  = null
-                        val result = AnthropicService.generatePlan(apiKey, prompt, selectedModel)
-                        result.onSuccess { generatedPlan = it }
+                        isGenerating = true
+                        errorMessage = null
+                        val result = AnthropicService.generatePlan(apiKey, prompt, AnthropicService.Model.OPUS)
+                        result.onSuccess { markdown ->
+                            val plan = ObservingPlan(
+                                createdAtMs       = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+                                targetObjectId    = target.objectId,
+                                targetDisplayName = target.displayName,
+                                equipmentConfigId = 0L,
+                                equipmentSummary  = "",
+                                locationName      = locationName,
+                                locationAltitudeM = location?.altitude ?: 0.0,
+                                bortleScale       = bortleScale,
+                                observingGoal     = "Imaging",
+                                availableMinutes  = 0,
+                                planMarkdown      = markdown
+                            )
+                            onPlanGenerated(plan)
+                        }
                         result.onFailure { errorMessage = it.message ?: "Unknown error" }
                         isGenerating = false
                     }
@@ -307,44 +302,6 @@ internal fun PlanCreationScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Try Again")
-            }
-        }
-
-        if (generatedPlan != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    generatedPlan!!,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            Button(
-                onClick = {
-                    val target = selectedTarget ?: return@Button
-                    val plan = ObservingPlan(
-                        createdAtMs       = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
-                        targetObjectId    = target.objectId,
-                        targetDisplayName = target.displayName,
-                        equipmentConfigId = 0L,
-                        equipmentSummary  = "",
-                        locationName      = locationName,
-                        locationAltitudeM = location?.altitude ?: 0.0,
-                        bortleScale       = bortleScale,
-                        observingGoal     = "Imaging",
-                        availableMinutes  = 0,
-                        planMarkdown      = generatedPlan!!
-                    )
-                    planRepository.insert(plan)
-                    onPlanSaved()
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Save Plan")
             }
         }
 
@@ -361,11 +318,6 @@ private fun buildPrompt(
     filters: String,
     timeZone: TimeZone
 ): String {
-    val transitStr = if (location != null) {
-        val d = AstronomyService.daysFromJ2000()
-        AstronomyService.getMeridianTransitForD(target.ra, location.longitude, location.latitude, d, timeZone)
-    } else "Unknown"
-
     val typeStr = target.type.name.lowercase().replaceFirstChar { it.uppercase() } +
             (target.subType?.let { " / $it" } ?: "")
     val constellationStr = target.constellation?.let { "Constellation: $it\n" } ?: ""
@@ -378,6 +330,7 @@ private fun buildPrompt(
         else -> ""
     }
 
+    val locationStr = if (locationName.isNotBlank()) "• Location: $locationName\n" else ""
     val altStr = if (location != null)
         "• Altitude: ${location.altitude.toInt()}m ASL\n"
     else
@@ -393,10 +346,11 @@ private fun buildPrompt(
         val fovWmin = fovWdeg * 60.0
         val fovHmin = fovHdeg * 60.0
         val plateScale = if (effectiveFL > 0) (config.pixelSize / effectiveFL) * 206.265 else 0.0
+        val colorType = if (isCameraColor(config.cameraName)) "Color (OSC)" else "Mono"
         buildString {
             appendLine("### ${config.name}")
             appendLine("• OTA: ${config.otaName.ifBlank { "Unknown" }}, Focal Length: ${config.focalLength.toInt()}mm, f/${fRatio.fmt1()}")
-            appendLine("• Camera: ${config.cameraName.ifBlank { "Unknown" }}, ${config.resolutionWidth}×${config.resolutionHeight}px @ ${config.pixelSize}µm")
+            appendLine("• Camera: ${config.cameraName.ifBlank { "Unknown" }} ($colorType), ${config.resolutionWidth}×${config.resolutionHeight}px @ ${config.pixelSize}µm")
             appendLine("• Effective focal length: ${effectiveFL.toInt()}mm (reducer: ${config.focalReducerFactor}x)")
             append("• Field of view: ${fovWmin.fmt1()}' × ${fovHmin.fmt1()}'   Plate scale: ${plateScale.fmt2()}\"/px")
         }
@@ -406,21 +360,23 @@ private fun buildPrompt(
 ## Target
 ${target.displayName} — $typeStr
 ${constellationStr}RA: ${target.ra.formatRa()}   Dec: ${target.dec.formatDec()}
-Tonight's meridian transit: $transitStr
 ${magnitudeStr}${angularSizeStr}
-
 ## Available Equipment Configurations
 $equipmentSection
 
 ## Observing Site
-$altStr• Bortle scale: $bortleScale/9
+${locationStr}${altStr}• Bortle scale: $bortleScale/9
 
 ## Session Parameters
 • Goal: Imaging
 • Available filters: ${filters.lines().filter { it.isNotBlank() }.joinToString(", ").ifBlank { "not specified" }}
-
-Recommend the best equipment configuration for this target. For each recommended filter: state the filter name, the reason for choosing it, and the recommended sub-exposure time in seconds. If a narrowband filter is recommended, always include a UV/IR cut as a companion for star colours. List each filter separately.
     """.trimIndent()
+}
+
+private fun isCameraColor(cameraName: String): Boolean {
+    val lower = cameraName.lowercase()
+    return lower.contains(" mc") || lower.contains("-mc") || lower.contains("mc ") ||
+           lower.contains("color") || lower.contains("colour") || lower.contains("osc")
 }
 
 private fun Double.formatRa(): String {

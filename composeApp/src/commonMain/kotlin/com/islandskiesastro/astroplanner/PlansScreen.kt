@@ -43,11 +43,13 @@ fun PlansScreen(
     var plans by remember { mutableStateOf(planRepository.getAll()) }
     var selectedPlan by remember { mutableStateOf<ObservingPlan?>(null) }
     var showCreate by remember { mutableStateOf(false) }
+    var draftPlan by remember { mutableStateOf<ObservingPlan?>(null) }
 
     fun reload() { plans = planRepository.getAll() }
 
-    LaunchedEffect(showCreate, selectedPlan) {
+    LaunchedEffect(showCreate, selectedPlan, draftPlan) {
         when {
+            draftPlan != null    -> onBackActionChanged { draftPlan = null; showCreate = false }
             showCreate           -> onBackActionChanged { showCreate = false }
             selectedPlan != null -> onBackActionChanged { selectedPlan = null }
             else                 -> onBackActionChanged(null)
@@ -55,6 +57,12 @@ fun PlansScreen(
     }
 
     when {
+        draftPlan != null -> PlanDetailScreen(
+            plan        = draftPlan!!,
+            onSaved     = { planRepository.insert(draftPlan!!); reload(); draftPlan = null; showCreate = false },
+            onDiscarded = { draftPlan = null; showCreate = false },
+            onBack      = { draftPlan = null; showCreate = false }
+        )
         showCreate -> PlanCreationScreen(
             preFill             = null,
             location            = location,
@@ -64,7 +72,7 @@ fun PlansScreen(
             planRepository      = planRepository,
             timeZone            = timeZone,
             onBack              = { showCreate = false },
-            onPlanSaved         = { reload(); showCreate = false }
+            onPlanGenerated     = { draftPlan = it }
         )
         selectedPlan != null -> PlanDetailScreen(
             plan      = selectedPlan!!,

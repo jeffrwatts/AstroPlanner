@@ -55,17 +55,29 @@ internal fun DetailScreen(
 
     var showFov          by remember { mutableStateOf(false) }
     var showPlanCreation by remember { mutableStateOf(false) }
+    var draftPlan        by remember { mutableStateOf<ObservingPlan?>(null) }
 
-    LaunchedEffect(showFov, showPlanCreation) {
+    LaunchedEffect(showFov, showPlanCreation, draftPlan) {
         when {
-            showFov          -> onBackActionChanged { showFov = false }
-            showPlanCreation -> onBackActionChanged { showPlanCreation = false }
-            else             -> onBackActionChanged(onBack)
+            showFov           -> onBackActionChanged { showFov = false }
+            draftPlan != null -> onBackActionChanged { draftPlan = null; showPlanCreation = false }
+            showPlanCreation  -> onBackActionChanged { showPlanCreation = false }
+            else              -> onBackActionChanged(onBack)
         }
     }
 
     if (showFov) {
         FieldOfViewScreen(skyObj = skyObj, equipmentRepository = equipmentRepository, onBack = { showFov = false })
+        return
+    }
+
+    if (draftPlan != null && planRepository != null) {
+        PlanDetailScreen(
+            plan        = draftPlan!!,
+            onSaved     = { planRepository.insert(draftPlan!!); draftPlan = null; showPlanCreation = false },
+            onDiscarded = { draftPlan = null; showPlanCreation = false },
+            onBack      = { draftPlan = null; showPlanCreation = false }
+        )
         return
     }
 
@@ -79,7 +91,7 @@ internal fun DetailScreen(
             planRepository      = planRepository,
             timeZone            = timeZone,
             onBack              = { showPlanCreation = false },
-            onPlanSaved         = { showPlanCreation = false }
+            onPlanGenerated     = { draftPlan = it }
         )
         return
     }

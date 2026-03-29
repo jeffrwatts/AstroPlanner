@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownTypography
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -29,9 +31,12 @@ import kotlinx.datetime.toLocalDateTime
 @Composable
 internal fun PlanDetailScreen(
     plan: ObservingPlan,
-    onDeleted: () -> Unit,
+    onDeleted: (() -> Unit)? = null,
+    onSaved: (() -> Unit)? = null,
+    onDiscarded: (() -> Unit)? = null,
     onBack: () -> Unit
 ) {
+    val isPreview = onSaved != null
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val dateStr = remember(plan.createdAtMs) {
@@ -46,7 +51,7 @@ internal fun PlanDetailScreen(
             title   = { Text("Delete Plan") },
             text    = { Text("Delete the plan for ${plan.targetDisplayName}? This cannot be undone.") },
             confirmButton = {
-                TextButton(onClick = { showDeleteDialog = false; onDeleted() }) {
+                TextButton(onClick = { showDeleteDialog = false; onDeleted?.invoke() }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -83,16 +88,37 @@ internal fun PlanDetailScreen(
 
         // ── Markdown plan body ────────────────────────────────────────────────
         Markdown(
-            content  = plan.planMarkdown,
-            modifier = Modifier.fillMaxWidth()
+            content    = plan.planMarkdown,
+            typography = markdownTypography(
+                h1 = MaterialTheme.typography.titleLarge,
+                h2 = MaterialTheme.typography.titleMedium,
+                h3 = MaterialTheme.typography.titleSmall,
+            ),
+            modifier   = Modifier.fillMaxWidth()
         )
 
         Spacer(Modifier.height(24.dp))
-        OutlinedButton(
-            onClick  = { showDeleteDialog = true },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Delete Plan", color = MaterialTheme.colorScheme.error)
+        if (isPreview) {
+            Button(
+                onClick  = { onSaved?.invoke() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Save Plan")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick  = { onDiscarded?.invoke() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Discard Plan")
+            }
+        } else {
+            OutlinedButton(
+                onClick  = { showDeleteDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Delete Plan", color = MaterialTheme.colorScheme.error)
+            }
         }
         Spacer(Modifier.height(16.dp))
     }
