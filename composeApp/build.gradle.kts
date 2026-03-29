@@ -13,6 +13,10 @@ val localProps = Properties()
 val localPropsFile = rootProject.file("local.properties")
 if (localPropsFile.exists()) localProps.load(localPropsFile.inputStream())
 val anthropicApiKey: String = localProps.getProperty("anthropic.api.key", "")
+val keystorePath: String    = localProps.getProperty("keystore.path", "")
+val keystorePass: String    = localProps.getProperty("keystore.password", "")
+val keyAlias: String        = localProps.getProperty("keystore.key.alias", "")
+val keyPass: String         = localProps.getProperty("keystore.key.password", "")
 
 // Configuration-cache-compatible task that generates ApiKeys.kt in build/
 abstract class GenerateApiKeysTask : DefaultTask() {
@@ -123,9 +127,23 @@ android {
         versionName = "1.0"
     }
 
+    if (keystorePath.isNotBlank()) {
+        signingConfigs {
+            create("release") {
+                storeFile     = file(keystorePath)
+                storePassword = keystorePass
+                keyAlias      = keyAlias
+                keyPassword   = keyPass
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystorePath.isNotBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
