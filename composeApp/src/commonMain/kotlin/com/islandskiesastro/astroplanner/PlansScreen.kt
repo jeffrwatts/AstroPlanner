@@ -134,15 +134,15 @@ private fun PlanListItem(plan: ObservingPlan, onClick: () -> Unit) {
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Text(plan.targetDisplayName, style = MaterialTheme.typography.bodyLarge)
+        Text(plan.targetDisplayName, style = MaterialTheme.typography.titleMedium)
         Text(
             plan.equipmentSummary,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             "${plan.locationName}  •  Bortle ${plan.bortleScale}  •  $dateStr",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(4.dp))

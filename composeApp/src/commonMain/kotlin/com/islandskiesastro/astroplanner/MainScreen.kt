@@ -68,6 +68,8 @@ fun MainScreen(
     // Clear both whenever the user switches tabs.
     LaunchedEffect(selectedIndex) { backAction = null; detailTitle = null }
 
+    PlatformBackHandler(enabled = backAction != null) { backAction?.invoke() }
+
     DisposableEffect(hasLocationPermission) {
         if (hasLocationPermission) locationService.startUpdates()
         onDispose { locationService.stopUpdates() }

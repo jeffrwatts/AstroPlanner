@@ -131,7 +131,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(config.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(config.name, style = MaterialTheme.typography.titleMedium)
                             val subtitle = buildList {
                                 if (config.otaName.isNotBlank())    add(config.otaName)
                                 if (config.cameraName.isNotBlank()) add(config.cameraName)
@@ -139,7 +139,7 @@ fun SettingsScreen(
                             }.joinToString(" · ")
                             Text(
                                 subtitle,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -197,7 +197,7 @@ fun SettingsScreen(
                         Text(
                             filter,
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.titleMedium
                         )
                         IconButton(onClick = {
                             filterList.removeAt(index)
@@ -255,7 +255,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Use Device GPS", style = MaterialTheme.typography.bodyLarge)
+            Text("Use Device GPS", style = MaterialTheme.typography.titleMedium)
             Switch(checked = useGpsLocation, onCheckedChange = onUseGpsChanged)
         }
 
@@ -280,10 +280,10 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(loc.displayName, style = MaterialTheme.typography.bodyLarge)
+                                Text(loc.displayName, style = MaterialTheme.typography.titleMedium)
                                 Text(
                                     "${loc.latitude}°, ${loc.longitude}°  •  ${loc.timeZoneId}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }

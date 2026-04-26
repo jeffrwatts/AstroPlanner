@@ -13,19 +13,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -37,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,19 +52,26 @@ import okio.Path.Companion.toPath
 import kotlinx.datetime.TimeZone
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 private data class MoonInfo(
     val pct: Int,
     val riseD: Double?,
     val setD: Double?,
-    val upAtDusk: Boolean
+    val upAtDusk: Boolean,
+    val isWaxing: Boolean
 )
 
 internal data class SkyObject(
     val obj: CelestialObject,
     val altitude: Double,
     val azimuth: Double,
-    val transit: String
+    val transit: String,
+    val isRising: Boolean
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,6 +92,7 @@ fun SkyPlannerScreen(
     var imagesMap by remember { mutableStateOf<Map<String, CelestialObjectImage>>(emptyMap()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedObject by remember { mutableStateOf<Pair<SkyObject, CelestialObjectImage?>?>(null) }
+    val listState = rememberLazyListState()
     var observingD by remember { mutableStateOf<Double?>(null) }
     var sliderTwilightTimes by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     val currentD = observingD ?: AstronomyService.daysFromJ2000()
@@ -89,12 +104,15 @@ fun SkyPlannerScreen(
             val (eveD, mornD) = tw
             val riseSet = AstronomyService.getMoonRiseSetTimes(loc.latitude, loc.longitude, eveD, mornD)
             val (ra, dec) = AstronomyService.moonRaDecForD(eveD)
-            val upAtDusk = AstronomyService.getAltAzmForD(ra, dec, loc.latitude, loc.longitude, eveD).altitude > 0.0
+            val upAtDusk   = AstronomyService.getAltAzmForD(ra, dec, loc.latitude, loc.longitude, eveD).altitude > 0.0
+            val illumNow   = AstronomyService.getMoonIllumination(eveD)
+            val illumNext  = AstronomyService.getMoonIllumination(eveD + 1.0 / 48.0)
             MoonInfo(
-                pct      = (AstronomyService.getMoonIllumination(eveD) * 100).roundToInt(),
+                pct      = (illumNow * 100).roundToInt(),
                 riseD    = riseSet.first,
                 setD     = riseSet.second,
-                upAtDusk = upAtDusk
+                upAtDusk = upAtDusk,
+                isWaxing = illumNext >= illumNow
             )
         } else null
     }
@@ -114,9 +132,8 @@ fun SkyPlannerScreen(
         sliderTwilightTimes = if (location != null) {
             val d = observingD ?: AstronomyService.daysFromJ2000()
             var times = AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, d)
-            // If observingD is unset (live "now") and we're already past morning twilight,
-            // we're in daytime — advance by one day to find tonight's night.
-            if (observingD == null && times != null && d > times.second) {
+            // If d is already past morning twilight (daytime), advance to find the next night.
+            if (times != null && d > times.second) {
                 times = AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, d + 1.0)
             }
             times
@@ -137,8 +154,9 @@ fun SkyPlannerScreen(
                 Pair(obj.ra, obj.dec)
             }
             val altAzm = AstronomyService.getAltAzmForD(ra, dec, lat, lon, d)
+            val altNext = AstronomyService.getAltAzmForD(ra, dec, lat, lon, d + 1.0 / 1440.0).altitude
             val transit = AstronomyService.getMeridianTransitForD(ra, lon, lat, d, timeZone)
-            SkyObject(obj.copy(ra = ra, dec = dec), altAzm.altitude, altAzm.azimuth, transit)
+            SkyObject(obj.copy(ra = ra, dec = dec), altAzm.altitude, altAzm.azimuth, transit, altNext > altAzm.altitude)
         }.sortedByDescending { it.altitude }
 
         imagesMap = repository.getImagesMap()
@@ -164,145 +182,155 @@ fun SkyPlannerScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // ── Objects filter ────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                "Objects",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            FilterChip(
-                selected = showRecommendedOnly,
-                onClick = { showRecommendedOnly = true },
-                label = { Text("Recommended") }
-            )
-            FilterChip(
-                selected = !showRecommendedOnly,
-                onClick = { showRecommendedOnly = false },
-                label = { Text("All") }
-            )
-        }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-        )
-
-        // ── Observing Time ────────────────────────────────────────────────────
-        Text(
-            "Observing Time",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, bottom = 0.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 0.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = {
-                observingD = (observingD ?: AstronomyService.daysFromJ2000()) - 1.0
-            }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous day")
-            }
-            Text(
-                AstronomyService.dToLocalDateString(currentD, timeZone),
-                modifier = Modifier.widthIn(min = 100.dp),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyMedium
-            )
-            IconButton(onClick = {
-                observingD = (observingD ?: AstronomyService.daysFromJ2000()) + 1.0
-            }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next day")
-            }
-        }
-
-        val times = sliderTwilightTimes
+        // ── Session card ──────────────────────────────────────────────────────
+        val times       = sliderTwilightTimes
         val isNighttime = times != null && currentD >= times.first && currentD <= times.second
         val showSlider  = times != null && (observingD != null || isNighttime)
         val showTonight = times != null && observingD == null && !isNighttime
         val showNow     = observingD != null
 
-        // Context-sensitive row: "Tonight →" when daytime Now, "Now" when navigated away
-        AnimatedVisibility(visible = showTonight || showNow) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                if (showTonight && times != null) {
-                    FilterChip(
-                        selected = false,
-                        onClick = { observingD = times.first },
-                        label = { Text("Tonight \u2192") }
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(top = 8.dp, bottom = 4.dp),
+            tonalElevation = 2.dp,
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+
+                // Row A: date nav + Tonight button (daytime only)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = {
+                        observingD = (observingD ?: AstronomyService.daysFromJ2000()) - 1.0
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous day")
+                    }
+                    Text(
+                        AstronomyService.dToLocalDateString(currentD, timeZone),
+                        modifier  = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                        style     = MaterialTheme.typography.titleSmall
                     )
-                } else if (showNow) {
+                    IconButton(onClick = {
+                        observingD = (observingD ?: AstronomyService.daysFromJ2000()) + 1.0
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next day")
+                    }
+                    val isLive = observingD == null && isNighttime
                     FilterChip(
-                        selected = false,
-                        onClick = { observingD = null },
-                        label = { Text("Now") }
+                        selected = isLive,
+                        onClick  = {
+                            when {
+                                showTonight && times != null -> observingD = times.first
+                                showNow                      -> observingD = null
+                                else                         -> { }
+                            }
+                        },
+                        label = {
+                            Text(
+                                when { showTonight -> "Tonight"; showNow -> "Now"; else -> "Live" },
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     )
+                }
+
+                // Row B: moon phase icon + pct + rise/set grouped together
+                if (moonInfo != null) {
+                    val riseStr    = moonInfo.riseD?.let { "↑ ${AstronomyService.dToLocalTimeString(it, timeZone)}" }
+                    val setStr     = moonInfo.setD?.let  { "↓ ${AstronomyService.dToLocalTimeString(it, timeZone)}" }
+                    val riseSetStr = when {
+                        riseStr != null && setStr != null -> "$riseStr  ·  $setStr"
+                        riseStr != null                   -> riseStr
+                        setStr  != null                   -> setStr
+                        moonInfo.upAtDusk                 -> "above horizon all night"
+                        else                              -> "below horizon"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MoonPhaseIcon(
+                            illumination = moonInfo.pct / 100f,
+                            isWaxing     = moonInfo.isWaxing,
+                            modifier     = Modifier.size(28.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "${moonInfo.pct}%  ·  $riseSetStr",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Row C: labeled time slider (nighttime only)
+                AnimatedVisibility(visible = showSlider) {
+                    if (times != null) {
+                        val (eveD, mornD) = times
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                AstronomyService.dToLocalTimeString(eveD, timeZone).compactTime(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Slider(
+                                value = ((currentD - eveD) / (mornD - eveD)).toFloat().coerceIn(0f, 1f),
+                                onValueChange = { f -> observingD = eveD + f * (mornD - eveD) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                AstronomyService.dToLocalTimeString(mornD, timeZone).compactTime(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                AstronomyService.dToLocalTimeString(currentD, timeZone),
+                                style    = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.widthIn(min = 64.dp),
+                                textAlign = TextAlign.End
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        AnimatedVisibility(visible = showSlider) {
-            if (times != null) {
-                val (eveD, mornD) = times
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Slider(
-                        value = ((currentD - eveD) / (mornD - eveD)).toFloat().coerceIn(0f, 1f),
-                        onValueChange = { f -> observingD = eveD + f * (mornD - eveD) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        AstronomyService.dToLocalTimeString(currentD, timeZone),
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-            }
-        }
-
-        AnimatedVisibility(visible = moonInfo != null) {
-            if (moonInfo != null) {
-                val riseText = moonInfo.riseD?.let { "Moonrise: ${AstronomyService.dToLocalTimeString(it, timeZone)}" }
-                val setText  = moonInfo.setD?.let  { "Moonset: ${AstronomyService.dToLocalTimeString(it, timeZone)}" }
-                val riseSetText = when {
-                    riseText != null && setText != null -> "$riseText   $setText"
-                    riseText != null                   -> riseText
-                    setText  != null                   -> setText
-                    moonInfo.upAtDusk                  -> "Moon above horizon all night"
-                    else                               -> "Moon below horizon all night"
-                }
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        "Moon: ${moonInfo.pct}% illuminated",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        riseSetText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+        // ── Filter chips ──────────────────────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = showRecommendedOnly,
+                onClick  = { showRecommendedOnly = true },
+                label    = { Text("Recommended") }
+            )
+            FilterChip(
+                selected = !showRecommendedOnly,
+                onClick  = { showRecommendedOnly = false },
+                label    = { Text("All") }
+            )
         }
 
         HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
         )
+
 
         if (skyObjects.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -321,7 +349,7 @@ fun SkyPlannerScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             ) {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                     items(skyObjects) { skyObj ->
                         val image = imagesMap[skyObj.obj.objectId]
                         SkyObjectItem(
@@ -374,20 +402,29 @@ private fun SkyObjectItem(
         Spacer(Modifier.size(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(skyObj.obj.displayName, style = MaterialTheme.typography.bodyLarge)
+            Text(skyObj.obj.displayName, style = MaterialTheme.typography.titleMedium)
             Text(
                 skyObj.obj.objectId,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                "Alt: ${skyObj.altitude.toDegreesMinutes()}  Azm: ${skyObj.azimuth.toDegreesMinutes()}",
-                style = MaterialTheme.typography.bodySmall
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (skyObj.isRising) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                    contentDescription = if (skyObj.isRising) "Rising" else "Setting",
+                    tint = if (skyObj.isRising) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "Alt: ${skyObj.altitude.toDegreesMinutes()}  Azm: ${skyObj.azimuth.toDegreesMinutes()}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             Text(
                 "Transit: ${skyObj.transit}",
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
@@ -417,3 +454,38 @@ private fun Double.formatFixed(decimals: Int): String {
 private fun pow10(exp: Int): Double {
     var r = 1.0; repeat(exp) { r *= 10.0 }; return r
 }
+
+private fun String.compactTime() = replace(" pm", "p").replace(" am", "a")
+
+@Composable
+private fun MoonPhaseIcon(illumination: Float, isWaxing: Boolean, modifier: Modifier = Modifier) {
+    val litColor  = Color(0xFFF0DFA0)
+    val darkColor = Color(0xFF1C2840)
+    val rimColor  = Color(0xFF4A5870)
+
+    Canvas(modifier = modifier) {
+        val r  = size.minDimension / 2f
+        val cx = size.width  / 2f
+        val cy = size.height / 2f
+        val f  = illumination.coerceIn(0f, 1f)
+
+        drawCircle(color = darkColor, radius = r, center = Offset(cx, cy))
+        drawCircle(color = rimColor, radius = r, center = Offset(cx, cy), style = Stroke(width = 1.5f))
+
+        if (f > 0.02f) {
+            val xr       = r * kotlin.math.abs(2f * f - 1f)
+            val fullRect = Rect(cx - r, cy - r, cx + r, cy + r)
+            val termRect = Rect(cx - xr, cy - r, cx + xr, cy + r)
+            val mainSweep = if (isWaxing) 180f else -180f
+            val termSweep = if (isWaxing == (f < 0.5f)) -180f else 180f
+
+            val litPath = Path()
+            litPath.moveTo(cx, cy - r)
+            litPath.arcTo(fullRect, startAngleDegrees = -90f, sweepAngleDegrees = mainSweep, forceMoveTo = false)
+            litPath.arcTo(termRect, startAngleDegrees =  90f, sweepAngleDegrees = termSweep, forceMoveTo = false)
+            litPath.close()
+            drawPath(litPath, litColor)
+        }
+    }
+}
+
