@@ -61,7 +61,7 @@ internal fun PlanCreationScreen(
     var selectedTarget by remember { mutableStateOf(preFill) }
     var showDropdown   by remember { mutableStateOf(false) }
 
-    var bortleScale by remember { mutableIntStateOf(5) }
+    var bortleScale by remember { mutableIntStateOf(planRepository.getBortleScale()) }
     val filters     = remember { planRepository.getFilters() }
 
     var showPrompt   by remember { mutableStateOf(false) }
@@ -168,7 +168,7 @@ internal fun PlanCreationScreen(
         }
         Slider(
             value = bortleScale.toFloat(),
-            onValueChange = { bortleScale = it.toInt() },
+            onValueChange = { bortleScale = it.toInt(); planRepository.setBortleScale(it.toInt()) },
             valueRange = 1f..9f,
             steps = 7,
             modifier = Modifier.fillMaxWidth()

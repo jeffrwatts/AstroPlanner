@@ -49,7 +49,7 @@ class PlanRepository(driverFactory: DatabaseDriverFactory) {
 
     fun setApiKey(key: String) {
         val current = settingsQ.getSettings().executeAsOneOrNull()
-        settingsQ.upsertSettings(key, current?.filterInventory ?: "")
+        settingsQ.upsertSettings(key, current?.filterInventory ?: "", current?.bortleScale ?: 5L)
     }
 
     fun getFilters(): String =
@@ -57,7 +57,15 @@ class PlanRepository(driverFactory: DatabaseDriverFactory) {
 
     fun setFilters(filters: String) {
         val current = settingsQ.getSettings().executeAsOneOrNull()
-        settingsQ.upsertSettings(current?.anthropicApiKey ?: "", filters)
+        settingsQ.upsertSettings(current?.anthropicApiKey ?: "", filters, current?.bortleScale ?: 5L)
+    }
+
+    fun getBortleScale(): Int =
+        settingsQ.getSettings().executeAsOneOrNull()?.bortleScale?.toInt() ?: 5
+
+    fun setBortleScale(scale: Int) {
+        val current = settingsQ.getSettings().executeAsOneOrNull()
+        settingsQ.upsertSettings(current?.anthropicApiKey ?: "", current?.filterInventory ?: "", scale.toLong())
     }
 
     private fun ObservingPlanRow.toDomain() = ObservingPlan(

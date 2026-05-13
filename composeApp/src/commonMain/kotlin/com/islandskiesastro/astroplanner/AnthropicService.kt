@@ -48,6 +48,10 @@ object AnthropicService {
         "4) Exposure time should be selected based upon the brightness of the target. Maximum sub-exposure is 300s —\n" +
         "   modern cooled CMOS sensors have low enough read noise that longer subs offer no SNR benefit and increase\n" +
         "   the risk of rejected frames.\n" +
+        "5) Minimum total integration time per filter should reflect what is realistically required to achieve a\n" +
+        "   useful result given the target brightness, Bortle scale, and filter type. Express as hours (e.g. 3h).\n" +
+        "   Narrowband filters on faint targets in bright skies will require significantly more integration than\n" +
+        "   broadband filters on bright targets under dark skies.\n" +
         "\n" +
         "Report Output — use exactly this markdown structure, no other sections or prose:\n" +
         "\n" +
@@ -59,9 +63,9 @@ object AnthropicService {
         "\n" +
         "## Recommended Filters\n" +
         "\n" +
-        "**[Filter Name]** — Sub-exposure: [N]s — [One sentence rationale.]\n" +
+        "**[Filter Name]** — Sub-exposure: [N]s — Min integration: [N]h — [One sentence rationale.]\n" +
         "\n" +
-        "**[Filter Name]** — Sub-exposure: [N]s — [One sentence rationale.]\n" +
+        "**[Filter Name]** — Sub-exposure: [N]s — Min integration: [N]h — [One sentence rationale.]\n" +
         "\n" +
         "Only include filters that are part of the recommendation. Separate each filter with a blank line. Do not include any text outside these three sections.\n" +
         "\n" +
@@ -71,20 +75,20 @@ object AnthropicService {
         "\n" +
         "**M42 (Orion Nebula) — WRONG:**\n" +
         "> ## Recommended Filters\n" +
-        "> **Optolong L-eXtreme** — Sub-exposure: 180s — Strong Hα and OIII emission from the ionized nebula makes dual-band narrowband ideal.\n" +
-        "> **Optolong UV/IR Cut** — Sub-exposure: 120s — Companion broadband for natural star colours.\n" +
+        "> **Optolong L-eXtreme** — Sub-exposure: 180s — Min integration: 4h — Strong Hα and OIII emission from the ionized nebula makes dual-band narrowband ideal.\n" +
+        "> **Optolong UV/IR Cut** — Sub-exposure: 120s — Min integration: 2h — Companion broadband for natural star colours.\n" +
         "\n" +
         "Why it is wrong: M42 has a large reflection nebula component surrounding the Trapezium. Listing L-eXtreme first implies narrowband is the primary recommendation. UV/IR cut should be listed first as the primary filter because it captures both the emission and reflection regions; L-eXtreme is the optional secondary.\n" +
         "\n" +
         "**M20 (Trifid Nebula) — WRONG:**\n" +
         "> ## Recommended Filters\n" +
-        "> **Optolong L-eXtreme** — Sub-exposure: 240s — The emission lobes of M20 emit strongly in Hα and OIII, making narrowband the best choice.\n" +
+        "> **Optolong L-eXtreme** — Sub-exposure: 240s — Min integration: 5h — The emission lobes of M20 emit strongly in Hα and OIII, making narrowband the best choice.\n" +
         "\n" +
         "Why it is wrong: M20 has a prominent blue reflection lobe that narrowband filters block entirely. UV/IR cut must be included and listed first; L-eXtreme may follow as a secondary for the emission lobes.\n" +
         "\n" +
         "**M31 (Andromeda Galaxy) — WRONG:**\n" +
         "> ## Recommended Filters\n" +
-        "> **Optolong L-eXtreme** — Sub-exposure: 300s — Narrowband captures the Hα star-forming regions within the galaxy's spiral arms.\n" +
+        "> **Optolong L-eXtreme** — Sub-exposure: 300s — Min integration: 6h — Narrowband captures the Hα star-forming regions within the galaxy's spiral arms.\n" +
         "\n" +
         "Why it is wrong: M31 is a broadband target. The L-eXtreme dual-band filter blocks the majority of the galaxy's broadband light, severely reducing detail in the disk and dust lanes. UV/IR cut is the correct and only filter for M31."
 

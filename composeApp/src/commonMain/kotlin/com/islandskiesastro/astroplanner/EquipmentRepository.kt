@@ -15,7 +15,10 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
                 2032.0, 203.2, 0.63, 4.63, 4144, 2822)
             queries.insert("RedCat 61 + ASI2600MC Duo",
                 "William Optics RedCat 61", "ZWO ASI 2600MC Duo",
-                360.0, 61.0, 1.0, 3.76, 6248, 4176)
+                300.0, 61.0, 1.0, 3.76, 6280, 4210)
+            queries.insert("SeeStar S30 Pro",
+                "SeeStar S30 Pro", "Built-in Sony IMX462",
+                160.0, 30.0, 1.0, 2.9, 3840, 2160)
         }
     }
 

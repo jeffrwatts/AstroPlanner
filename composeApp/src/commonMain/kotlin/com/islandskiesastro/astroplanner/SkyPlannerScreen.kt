@@ -23,9 +23,12 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,7 +42,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -88,9 +94,11 @@ fun SkyPlannerScreen(
     timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     var showRecommendedOnly by remember { mutableStateOf(true) }
+    var searchQuery by remember { mutableStateOf("") }
     var skyObjects by remember { mutableStateOf<List<SkyObject>>(emptyList()) }
     var imagesMap by remember { mutableStateOf<Map<String, CelestialObjectImage>>(emptyMap()) }
     var isRefreshing by remember { mutableStateOf(false) }
+    val refreshScope = rememberCoroutineScope()
     var selectedObject by remember { mutableStateOf<Pair<SkyObject, CelestialObjectImage?>?>(null) }
     val listState = rememberLazyListState()
     var observingD by remember { mutableStateOf<Double?>(null) }
@@ -135,6 +143,10 @@ fun SkyPlannerScreen(
             // If d is already past morning twilight (daytime), advance to find the next night.
             if (times != null && d > times.second) {
                 times = AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, d + 1.0)
+            }
+            // If the user navigated to a specific day and the time falls before the start of night, snap to start of night.
+            if (times != null && observingD != null && observingD!! < times.first) {
+                observingD = times.first
             }
             times
         } else null
@@ -306,6 +318,24 @@ fun SkyPlannerScreen(
             }
         }
 
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            placeholder = { Text("Search by name or ID") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
+            singleLine = true
+        )
+
         // ── Filter chips ──────────────────────────────────────────────────────
         Row(
             modifier = Modifier
@@ -331,6 +361,13 @@ fun SkyPlannerScreen(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
         )
 
+        val filteredObjects = remember(skyObjects, searchQuery) {
+            if (searchQuery.isBlank()) skyObjects
+            else {
+                val q = searchQuery.trim().lowercase()
+                skyObjects.filter { it.obj.objectId.lowercase().contains(q) || it.obj.displayName.lowercase().contains(q) }
+            }
+        }
 
         if (skyObjects.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -343,14 +380,17 @@ fun SkyPlannerScreen(
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh = {
-                    isRefreshing = true
-                    loadObjects()
-                    isRefreshing = false
+                    refreshScope.launch {
+                        isRefreshing = true
+                        delay(50) // allow a frame to render with isRefreshing=true so PullToRefreshBox state machine reaches Refreshing before endRefresh() is called
+                        loadObjects()
+                        isRefreshing = false
+                    }
                 },
                 modifier = Modifier.fillMaxSize()
             ) {
                 LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                    items(skyObjects) { skyObj ->
+                    items(filteredObjects) { skyObj ->
                         val image = imagesMap[skyObj.obj.objectId]
                         SkyObjectItem(
                             skyObj = skyObj,
