@@ -48,24 +48,45 @@ class PlanRepository(driverFactory: DatabaseDriverFactory) {
         settingsQ.getSettings().executeAsOneOrNull()?.anthropicApiKey ?: ""
 
     fun setApiKey(key: String) {
-        val current = settingsQ.getSettings().executeAsOneOrNull()
-        settingsQ.upsertSettings(key, current?.filterInventory ?: "", current?.bortleScale ?: 5L)
+        val s = settingsQ.getSettings().executeAsOneOrNull()
+        settingsQ.upsertSettings(key, s?.filterInventory ?: "", s?.bortleScale ?: 5L,
+            s?.selectedEquipmentId ?: 0L, s?.availableMinutes ?: 180L)
     }
 
     fun getFilters(): String =
         settingsQ.getSettings().executeAsOneOrNull()?.filterInventory ?: ""
 
     fun setFilters(filters: String) {
-        val current = settingsQ.getSettings().executeAsOneOrNull()
-        settingsQ.upsertSettings(current?.anthropicApiKey ?: "", filters, current?.bortleScale ?: 5L)
+        val s = settingsQ.getSettings().executeAsOneOrNull()
+        settingsQ.upsertSettings(s?.anthropicApiKey ?: "", filters, s?.bortleScale ?: 5L,
+            s?.selectedEquipmentId ?: 0L, s?.availableMinutes ?: 180L)
     }
 
     fun getBortleScale(): Int =
         settingsQ.getSettings().executeAsOneOrNull()?.bortleScale?.toInt() ?: 5
 
     fun setBortleScale(scale: Int) {
-        val current = settingsQ.getSettings().executeAsOneOrNull()
-        settingsQ.upsertSettings(current?.anthropicApiKey ?: "", current?.filterInventory ?: "", scale.toLong())
+        val s = settingsQ.getSettings().executeAsOneOrNull()
+        settingsQ.upsertSettings(s?.anthropicApiKey ?: "", s?.filterInventory ?: "", scale.toLong(),
+            s?.selectedEquipmentId ?: 0L, s?.availableMinutes ?: 180L)
+    }
+
+    fun getSelectedEquipmentId(): Long =
+        settingsQ.getSettings().executeAsOneOrNull()?.selectedEquipmentId ?: 0L
+
+    fun setSelectedEquipmentId(id: Long) {
+        val s = settingsQ.getSettings().executeAsOneOrNull()
+        settingsQ.upsertSettings(s?.anthropicApiKey ?: "", s?.filterInventory ?: "",
+            s?.bortleScale ?: 5L, id, s?.availableMinutes ?: 180L)
+    }
+
+    fun getAvailableMinutes(): Int =
+        settingsQ.getSettings().executeAsOneOrNull()?.availableMinutes?.toInt() ?: 180
+
+    fun setAvailableMinutes(minutes: Int) {
+        val s = settingsQ.getSettings().executeAsOneOrNull()
+        settingsQ.upsertSettings(s?.anthropicApiKey ?: "", s?.filterInventory ?: "",
+            s?.bortleScale ?: 5L, s?.selectedEquipmentId ?: 0L, minutes.toLong())
     }
 
     private fun ObservingPlanRow.toDomain() = ObservingPlan(

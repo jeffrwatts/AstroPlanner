@@ -1,12 +1,15 @@
 CREATE TABLE appSettings (
-    id               INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
-    anthropicApiKey  TEXT    NOT NULL DEFAULT '',
-    filterInventory  TEXT    NOT NULL DEFAULT '',
-    bortleScale      INTEGER NOT NULL DEFAULT 5
+    id                  INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    anthropicApiKey     TEXT    NOT NULL DEFAULT '',
+    filterInventory     TEXT    NOT NULL DEFAULT '',
+    bortleScale         INTEGER NOT NULL DEFAULT 5,
+    selectedEquipmentId INTEGER NOT NULL DEFAULT 0,
+    availableMinutes    INTEGER NOT NULL DEFAULT 180
 );
 
 getSettings:
 SELECT * FROM appSettings WHERE id = 1;
 
 upsertSettings:
-INSERT OR REPLACE INTO appSettings (id, anthropicApiKey, filterInventory, bortleScale) VALUES (1, ?, ?, ?);
+INSERT OR REPLACE INTO appSettings (id, anthropicApiKey, filterInventory, bortleScale, selectedEquipmentId, availableMinutes)
+VALUES (1, ?, ?, ?, ?, ?);

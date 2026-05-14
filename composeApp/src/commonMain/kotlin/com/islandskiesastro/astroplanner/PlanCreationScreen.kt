@@ -18,12 +18,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -41,6 +45,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PlanCreationScreen(
     preFill: CelestialObject?,
@@ -61,17 +66,26 @@ internal fun PlanCreationScreen(
     var selectedTarget by remember { mutableStateOf(preFill) }
     var showDropdown   by remember { mutableStateOf(false) }
 
-    var bortleScale by remember { mutableIntStateOf(planRepository.getBortleScale()) }
-    val filters     = remember { planRepository.getFilters() }
+    var selectedConfig by remember {
+        mutableStateOf(
+            allConfigs.find { it.id == planRepository.getSelectedEquipmentId() } ?: allConfigs.firstOrNull()
+        )
+    }
+    var configExpanded by remember { mutableStateOf(false) }
+
+    var bortleScale      by remember { mutableIntStateOf(planRepository.getBortleScale()) }
+    var availableMinutes by remember { mutableIntStateOf(planRepository.getAvailableMinutes()) }
+    val filters          = remember { planRepository.getFilters() }
 
     var showPrompt   by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val currentPrompt = remember(selectedTarget, location, locationName, bortleScale, filters, timeZone) {
+    val currentPrompt = remember(selectedTarget, selectedConfig, location, locationName, bortleScale, availableMinutes, filters, timeZone) {
         val t = selectedTarget ?: return@remember null
-        buildPrompt(target = t, configs = allConfigs, location = location, locationName = locationName,
-            bortleScale = bortleScale, filters = filters, timeZone = timeZone)
+        val c = selectedConfig ?: return@remember null
+        buildPrompt(target = t, config = c, location = location, locationName = locationName,
+            bortleScale = bortleScale, availableMinutes = availableMinutes, filters = filters, timeZone = timeZone)
     }
 
     val filteredObjects = remember(searchQuery) {
@@ -156,6 +170,37 @@ internal fun PlanCreationScreen(
         Text(siteText, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+        // ── Equipment Configuration ───────────────────────────────────────────
+        Text("Equipment", style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ExposedDropdownMenuBox(
+            expanded = configExpanded,
+            onExpandedChange = { if (allConfigs.isNotEmpty()) configExpanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedConfig?.name ?: "No equipment configured",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = configExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = configExpanded,
+                onDismissRequest = { configExpanded = false }
+            ) {
+                allConfigs.forEach { config ->
+                    DropdownMenuItem(
+                        text = { Text(config.name) },
+                        onClick = {
+                            selectedConfig = config
+                            planRepository.setSelectedEquipmentId(config.id)
+                            configExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
         // ── Bortle Scale ──────────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -171,6 +216,28 @@ internal fun PlanCreationScreen(
             onValueChange = { bortleScale = it.toInt(); planRepository.setBortleScale(it.toInt()) },
             valueRange = 1f..9f,
             steps = 7,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // ── Available Imaging Time ────────────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Available Time", style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(formatMinutes(availableMinutes), style = MaterialTheme.typography.bodyMedium)
+        }
+        Slider(
+            value = availableMinutes.toFloat(),
+            onValueChange = {
+                val snapped = (it / 30).toInt() * 30
+                availableMinutes = snapped
+                planRepository.setAvailableMinutes(snapped)
+            },
+            valueRange = 60f..720f,
+            steps = 21,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -201,13 +268,13 @@ internal fun PlanCreationScreen(
         Spacer(Modifier.height(4.dp))
 
         val canGenerate = selectedTarget != null &&
-                allConfigs.isNotEmpty() &&
+                selectedConfig != null &&
                 apiKey.isNotBlank() &&
                 !isGenerating
 
         val generateTooltip = when {
             apiKey.isBlank()         -> "Add your Anthropic API key in Settings"
-            allConfigs.isEmpty()     -> "Configure equipment in Settings first"
+            selectedConfig == null   -> "Configure equipment in Settings first"
             selectedTarget == null   -> "Select a target first"
             else                     -> null
         }
@@ -233,13 +300,13 @@ internal fun PlanCreationScreen(
                             createdAtMs       = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
                             targetObjectId    = target.objectId,
                             targetDisplayName = target.displayName,
-                            equipmentConfigId = 0L,
-                            equipmentSummary  = "",
+                            equipmentConfigId = selectedConfig?.id ?: 0L,
+                            equipmentSummary  = selectedConfig?.name ?: "",
                             locationName      = locationName,
                             locationAltitudeM = location?.altitude ?: 0.0,
                             bortleScale       = bortleScale,
                             observingGoal     = "Imaging",
-                            availableMinutes  = 0,
+                            availableMinutes  = availableMinutes,
                             planMarkdown      = markdown
                         )
                         onPlanGenerated(plan)
@@ -284,13 +351,13 @@ internal fun PlanCreationScreen(
                                 createdAtMs       = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
                                 targetObjectId    = target.objectId,
                                 targetDisplayName = target.displayName,
-                                equipmentConfigId = 0L,
-                                equipmentSummary  = "",
+                                equipmentConfigId = selectedConfig?.id ?: 0L,
+                                equipmentSummary  = selectedConfig?.name ?: "",
                                 locationName      = locationName,
                                 locationAltitudeM = location?.altitude ?: 0.0,
                                 bortleScale       = bortleScale,
                                 observingGoal     = "Imaging",
-                                availableMinutes  = 0,
+                                availableMinutes  = availableMinutes,
                                 planMarkdown      = markdown
                             )
                             onPlanGenerated(plan)
@@ -311,10 +378,11 @@ internal fun PlanCreationScreen(
 
 private fun buildPrompt(
     target: CelestialObject,
-    configs: List<EquipmentConfig>,
+    config: EquipmentConfig,
     location: LocationData?,
     locationName: String,
     bortleScale: Int,
+    availableMinutes: Int,
     filters: String,
     timeZone: TimeZone
 ): String {
@@ -336,24 +404,21 @@ private fun buildPrompt(
     else
         "• Altitude: Unknown\n"
 
-    val equipmentSection = configs.joinToString("\n\n") { config ->
-        val effectiveFL = config.focalLength * config.focalReducerFactor
-        val fRatio = if (config.aperture > 0) effectiveFL / config.aperture else 0.0
-        val sensorWmm = config.pixelSize * config.resolutionWidth / 1000.0
-        val sensorHmm = config.pixelSize * config.resolutionHeight / 1000.0
-        val fovWdeg = if (effectiveFL > 0) 2.0 * atan(sensorWmm / (2.0 * effectiveFL)) * (180.0 / PI) else 0.0
-        val fovHdeg = if (effectiveFL > 0) 2.0 * atan(sensorHmm / (2.0 * effectiveFL)) * (180.0 / PI) else 0.0
-        val fovWmin = fovWdeg * 60.0
-        val fovHmin = fovHdeg * 60.0
-        val plateScale = if (effectiveFL > 0) (config.pixelSize / effectiveFL) * 206.265 else 0.0
-        val colorType = if (isCameraColor(config.cameraName)) "Color (OSC)" else "Mono"
-        buildString {
-            appendLine("### ${config.name}")
-            appendLine("• OTA: ${config.otaName.ifBlank { "Unknown" }}, Focal Length: ${config.focalLength.toInt()}mm, f/${fRatio.fmt1()}")
-            appendLine("• Camera: ${config.cameraName.ifBlank { "Unknown" }} ($colorType), ${config.resolutionWidth}×${config.resolutionHeight}px @ ${config.pixelSize}µm")
-            appendLine("• Effective focal length: ${effectiveFL.toInt()}mm (reducer: ${config.focalReducerFactor}x)")
-            append("• Field of view: ${fovWmin.fmt1()}' × ${fovHmin.fmt1()}'   Plate scale: ${plateScale.fmt2()}\"/px")
-        }
+    val effectiveFL = config.focalLength * config.focalReducerFactor
+    val fRatio = if (config.aperture > 0) effectiveFL / config.aperture else 0.0
+    val sensorWmm = config.pixelSize * config.resolutionWidth / 1000.0
+    val sensorHmm = config.pixelSize * config.resolutionHeight / 1000.0
+    val fovWdeg = if (effectiveFL > 0) 2.0 * atan(sensorWmm / (2.0 * effectiveFL)) * (180.0 / PI) else 0.0
+    val fovHdeg = if (effectiveFL > 0) 2.0 * atan(sensorHmm / (2.0 * effectiveFL)) * (180.0 / PI) else 0.0
+    val fovWmin = fovWdeg * 60.0
+    val fovHmin = fovHdeg * 60.0
+    val plateScale = if (effectiveFL > 0) (config.pixelSize / effectiveFL) * 206.265 else 0.0
+    val colorType = if (isCameraColor(config.cameraName)) "Color (OSC)" else "Mono"
+    val equipmentSection = buildString {
+        appendLine("• OTA: ${config.otaName.ifBlank { "Unknown" }}, Focal Length: ${config.focalLength.toInt()}mm, f/${fRatio.fmt1()}")
+        appendLine("• Camera: ${config.cameraName.ifBlank { "Unknown" }} ($colorType), ${config.resolutionWidth}×${config.resolutionHeight}px @ ${config.pixelSize}µm")
+        appendLine("• Effective focal length: ${effectiveFL.toInt()}mm (reducer: ${config.focalReducerFactor}x)")
+        append("• Field of view: ${fovWmin.fmt1()}' × ${fovHmin.fmt1()}'   Plate scale: ${plateScale.fmt2()}\"/px")
     }
 
     return """
@@ -361,7 +426,7 @@ private fun buildPrompt(
 ${target.displayName} — $typeStr
 ${constellationStr}RA: ${target.ra.formatRa()}   Dec: ${target.dec.formatDec()}
 ${magnitudeStr}${angularSizeStr}
-## Available Equipment Configurations
+## Equipment Configuration: ${config.name}
 $equipmentSection
 
 ## Observing Site
@@ -369,6 +434,7 @@ ${locationStr}${altStr}• Bortle scale: $bortleScale/9
 
 ## Session Parameters
 • Goal: Imaging
+• Available imaging time: ${formatMinutes(availableMinutes)}
 • Available filters: ${filters.lines().filter { it.isNotBlank() }.joinToString(", ").ifBlank { "not specified" }}
     """.trimIndent()
 }
@@ -403,6 +469,12 @@ private fun Double.fmt1(): String {
     val dot = str.indexOf('.')
     return if (dot < 0) "$str.0"
     else str.padEnd(dot + 2, '0').substring(0, dot + 2)
+}
+
+private fun formatMinutes(minutes: Int): String {
+    val h = minutes / 60
+    val m = minutes % 60
+    return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
 // Format to 2 decimal places without String.format (KMP-safe)
