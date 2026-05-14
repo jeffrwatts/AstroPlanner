@@ -10,5 +10,6 @@ data class EquipmentConfig(
     val focalReducerFactor: Double,   // 1.0 = no reducer
     val pixelSize: Double,            // µm — camera pixel size
     val resolutionWidth: Int,         // px
-    val resolutionHeight: Int         // px
+    val resolutionHeight: Int,        // px
+    val filtersSupported: Boolean = true  // false for closed systems (e.g. SeeStar)
 )

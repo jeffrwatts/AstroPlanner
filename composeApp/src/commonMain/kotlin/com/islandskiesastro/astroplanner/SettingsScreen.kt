@@ -142,6 +142,13 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (!config.filtersSupported) {
+                                Text(
+                                    "No external filters",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         IconButton(onClick = {
                             dialogInitial = config
@@ -377,6 +384,7 @@ private fun EquipmentConfigDialog(
     var pixelSize          by remember { mutableStateOf(initial?.pixelSize?.toString()          ?: "") }
     var resolutionWidth    by remember { mutableStateOf(initial?.resolutionWidth?.toString()    ?: "") }
     var resolutionHeight   by remember { mutableStateOf(initial?.resolutionHeight?.toString()   ?: "") }
+    var filtersSupported   by remember { mutableStateOf(initial?.filtersSupported ?: true) }
     var error              by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -450,6 +458,23 @@ private fun EquipmentConfigDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Supports External Filters", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Disable for closed optical systems (e.g. SeeStar)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = filtersSupported,
+                        onCheckedChange = { filtersSupported = it }
+                    )
+                }
             }
         },
         confirmButton = {
@@ -478,7 +503,8 @@ private fun EquipmentConfigDialog(
                         focalReducerFactor = frf,
                         pixelSize          = ps,
                         resolutionWidth    = rw,
-                        resolutionHeight   = rh
+                        resolutionHeight   = rh,
+                        filtersSupported   = filtersSupported
                     ))
                 }
             }) { Text("Save") }

@@ -435,7 +435,7 @@ ${locationStr}${altStr}• Bortle scale: $bortleScale/9
 ## Session Parameters
 • Goal: Imaging
 • Available imaging time: ${formatMinutes(availableMinutes)}
-• Available filters: ${filters.lines().filter { it.isNotBlank() }.joinToString(", ").ifBlank { "not specified" }}
+${if (config.filtersSupported) "• Available filters: ${filters.lines().filter { it.isNotBlank() }.joinToString(", ").ifBlank { "not specified" }}" else "• Filters: not supported (closed optical system — do not recommend any filters)"}
     """.trimIndent()
 }
 

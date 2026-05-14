@@ -12,13 +12,13 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
         if (queries.selectAll().executeAsList().isEmpty()) {
             queries.insert("C8 + 0.63x Reducer + ASI294MC Pro",
                 "Celestron C8", "ZWO ASI 294MC Pro",
-                2032.0, 203.2, 0.63, 4.63, 4144, 2822)
+                2032.0, 203.2, 0.63, 4.63, 4144, 2822, 1)
             queries.insert("RedCat 61 + ASI2600MC Duo",
                 "William Optics RedCat 61", "ZWO ASI 2600MC Duo",
-                300.0, 61.0, 1.0, 3.76, 6280, 4210)
+                300.0, 61.0, 1.0, 3.76, 6280, 4210, 1)
             queries.insert("SeeStar S30 Pro",
                 "SeeStar S30 Pro", "Built-in Sony IMX462",
-                160.0, 30.0, 1.0, 2.9, 3840, 2160)
+                160.0, 30.0, 1.0, 2.9, 3840, 2160, 0)
         }
     }
 
@@ -30,7 +30,8 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
             config.name, config.otaName, config.cameraName,
             config.focalLength, config.aperture,
             config.focalReducerFactor, config.pixelSize,
-            config.resolutionWidth.toLong(), config.resolutionHeight.toLong()
+            config.resolutionWidth.toLong(), config.resolutionHeight.toLong(),
+            if (config.filtersSupported) 1L else 0L
         )
     }
 
@@ -40,6 +41,7 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
             config.focalLength, config.aperture,
             config.focalReducerFactor, config.pixelSize,
             config.resolutionWidth.toLong(), config.resolutionHeight.toLong(),
+            if (config.filtersSupported) 1L else 0L,
             config.id
         )
     }
@@ -58,6 +60,7 @@ class EquipmentRepository(driverFactory: DatabaseDriverFactory) {
         focalReducerFactor = focalReducerFactor,
         pixelSize          = pixelSize,
         resolutionWidth    = resolutionWidth.toInt(),
-        resolutionHeight   = resolutionHeight.toInt()
+        resolutionHeight   = resolutionHeight.toInt(),
+        filtersSupported   = filtersSupported != 0L
     )
 }

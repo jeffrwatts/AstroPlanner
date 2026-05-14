@@ -17,7 +17,7 @@ class PlanRepository(driverFactory: DatabaseDriverFactory) {
         }
         // Seed a default filter inventory for new installs.
         if (getFilters().isBlank()) {
-            setFilters("Optolong L-eXtreme\nOptolong UV/IR Cut")
+            setFilters("Optolong L-eXtreme\nOptolong L-Synergy\nOptolong UV/IR Cut")
         }
     }
 
