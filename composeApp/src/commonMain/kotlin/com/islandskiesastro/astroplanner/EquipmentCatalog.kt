@@ -26,6 +26,7 @@ object EquipmentCatalog {
         OtaSpec("Celestron C8",             focalLength = 2032.0, aperture = 203.2),
         OtaSpec("William Optics RedCat 51", focalLength = 250.0,  aperture = 51.0),
         OtaSpec("William Optics RedCat 61", focalLength = 300.0,  aperture = 61.0),
+        OtaSpec("William Optics RedCat 71", focalLength = 350.0,  aperture = 71.0),
         OtaSpec("SeeStar S30",    focalLength = 150.0, aperture = 30.0, filtersSupported = false,
             builtInCamera = CameraSpec("Sony IMX462 (built-in)", pixelSize = 2.9, resolutionWidth = 1920,  resolutionHeight = 1080)),
         OtaSpec("SeeStar S30 Pro", focalLength = 160.0, aperture = 30.0, filtersSupported = false,
