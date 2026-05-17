@@ -75,7 +75,11 @@ internal fun PlanCreationScreen(
 
     var bortleScale      by remember { mutableIntStateOf(planRepository.getBortleScale()) }
     var availableMinutes by remember { mutableIntStateOf(planRepository.getAvailableMinutes()) }
-    val filters          = remember { planRepository.getFilters() }
+    val filters = remember {
+        planRepository.getFilters().lines()
+            .filter { it.isNotBlank() }
+            .mapNotNull { FilterCatalog.findByName(it) }
+    }
 
     var showPrompt   by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
@@ -383,7 +387,7 @@ private fun buildPrompt(
     locationName: String,
     bortleScale: Int,
     availableMinutes: Int,
-    filters: String,
+    filters: List<FilterSpec>,
     timeZone: TimeZone
 ): String {
     val typeStr = target.type.name.lowercase().replaceFirstChar { it.uppercase() } +
@@ -435,7 +439,7 @@ ${locationStr}${altStr}• Bortle scale: $bortleScale/9
 ## Session Parameters
 • Goal: Imaging
 • Available imaging time: ${formatMinutes(availableMinutes)}
-${if (config.filtersSupported) "• Available filters: ${filters.lines().filter { it.isNotBlank() }.joinToString(", ").ifBlank { "not specified" }}" else "• Filters: not supported (closed optical system — do not recommend any filters)"}
+${if (config.filtersSupported) "• Available filters: ${filters.joinToString(", ") { it.promptText }.ifBlank { "not specified" }}" else "• Filters: not supported (closed optical system — do not recommend any filters)"}
     """.trimIndent()
 }
 

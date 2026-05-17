@@ -15,10 +15,6 @@ class PlanRepository(driverFactory: DatabaseDriverFactory) {
         if (getApiKey().isBlank() && ANTHROPIC_API_KEY_BUILD.isNotBlank()) {
             setApiKey(ANTHROPIC_API_KEY_BUILD)
         }
-        // Seed a default filter inventory for new installs.
-        if (getFilters().isBlank()) {
-            setFilters("Optolong L-eXtreme\nOptolong L-Synergy\nOptolong UV/IR Cut")
-        }
     }
 
     fun getAll(): List<ObservingPlan> =

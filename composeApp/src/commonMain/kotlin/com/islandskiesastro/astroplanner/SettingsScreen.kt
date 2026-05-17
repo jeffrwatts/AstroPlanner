@@ -27,10 +27,15 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -48,6 +53,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     useGpsLocation: Boolean,
@@ -68,7 +74,7 @@ fun SettingsScreen(
             list.addAll(planRepository.getFilters().lines().filter { it.isNotBlank() })
         }
     }
-    var newFilterDraft by remember { mutableStateOf("") }
+    var filterDropdownExpanded by remember { mutableStateOf(false) }
 
     fun saveFilters() { planRepository.setFilters(filterList.joinToString("\n")) }
 
@@ -194,18 +200,24 @@ fun SettingsScreen(
             )
         } else {
             SettingsList {
-                filterList.forEachIndexed { index, filter ->
+                filterList.forEachIndexed { index, filterName ->
+                    val spec = FilterCatalog.findByName(filterName)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            filter,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(filterName, style = MaterialTheme.typography.titleMedium)
+                            if (spec != null) {
+                                Text(
+                                    spec.passbandSummary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         IconButton(onClick = {
                             filterList.removeAt(index)
                             saveFilters()
@@ -222,29 +234,44 @@ fun SettingsScreen(
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+        ExposedDropdownMenuBox(
+            expanded = filterDropdownExpanded,
+            onExpandedChange = { filterDropdownExpanded = it }
         ) {
             OutlinedTextField(
-                value = newFilterDraft,
-                onValueChange = { newFilterDraft = it },
+                value = "",
+                onValueChange = {},
+                readOnly = true,
                 label = { Text("Add filter") },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = filterDropdownExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
             )
-            IconButton(
-                onClick = {
-                    val trimmed = newFilterDraft.trim()
-                    if (trimmed.isNotBlank() && !filterList.contains(trimmed)) {
-                        filterList.add(trimmed)
-                        saveFilters()
-                    }
-                    newFilterDraft = ""
-                }
+            ExposedDropdownMenu(
+                expanded = filterDropdownExpanded,
+                onDismissRequest = { filterDropdownExpanded = false }
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add filter")
+                FilterCatalog.filters.forEach { spec ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(spec.name, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    spec.passbandSummary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            if (!filterList.contains(spec.name)) {
+                                filterList.add(spec.name)
+                                saveFilters()
+                            }
+                            filterDropdownExpanded = false
+                        }
+                    )
+                }
             }
         }
 
@@ -369,23 +396,45 @@ private fun SettingsDivider() {
 
 // ── Add / Edit dialog ─────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EquipmentConfigDialog(
     initial: EquipmentConfig?,
     onDismiss: () -> Unit,
     onSave: (EquipmentConfig) -> Unit
 ) {
-    var name               by remember { mutableStateOf(initial?.name               ?: "") }
-    var otaName            by remember { mutableStateOf(initial?.otaName            ?: "") }
-    var cameraName         by remember { mutableStateOf(initial?.cameraName         ?: "") }
-    var focalLength        by remember { mutableStateOf(initial?.focalLength?.toString()        ?: "") }
-    var aperture           by remember { mutableStateOf(initial?.aperture?.toString()           ?: "") }
-    var focalReducerFactor by remember { mutableStateOf(initial?.focalReducerFactor?.toString() ?: "1.0") }
-    var pixelSize          by remember { mutableStateOf(initial?.pixelSize?.toString()          ?: "") }
-    var resolutionWidth    by remember { mutableStateOf(initial?.resolutionWidth?.toString()    ?: "") }
-    var resolutionHeight   by remember { mutableStateOf(initial?.resolutionHeight?.toString()   ?: "") }
-    var filtersSupported   by remember { mutableStateOf(initial?.filtersSupported ?: true) }
-    var error              by remember { mutableStateOf<String?>(null) }
+    val otas     = EquipmentCatalog.otas
+    val cameras  = EquipmentCatalog.cameras
+    val reducers = EquipmentCatalog.reducers
+
+    val initialOtaIndex = initial?.let { cfg ->
+        otas.indexOfFirst { it.name == cfg.otaName }.takeIf { it >= 0 }
+    } ?: 0
+
+    val initialCameraIndex = initial?.let { cfg ->
+        cameras.indexOfFirst { it.name == cfg.cameraName }.takeIf { it >= 0 }
+    } ?: 0
+
+    val initialReducerIndex = initial?.let { cfg ->
+        reducers.indexOfFirst { it.factor == cfg.focalReducerFactor }.takeIf { it >= 0 }
+    } ?: 0
+
+    var selectedOta     by remember { mutableStateOf(otas[initialOtaIndex]) }
+    var selectedCamera  by remember { mutableStateOf(cameras[initialCameraIndex]) }
+    var selectedReducer by remember { mutableStateOf(reducers[initialReducerIndex]) }
+
+    var otaExpanded     by remember { mutableStateOf(false) }
+    var cameraExpanded  by remember { mutableStateOf(false) }
+    var reducerExpanded by remember { mutableStateOf(false) }
+
+    val builtIn = selectedOta.builtInCamera
+    val effectiveCamera  = builtIn ?: selectedCamera
+    val effectiveReducer = if (builtIn != null) reducers[0] else selectedReducer
+
+    fun buildName(): String {
+        val reducerPart = if (effectiveReducer.factor == 1.0) "" else " + ${effectiveReducer.label}"
+        return "${selectedOta.name}$reducerPart + ${effectiveCamera.name}"
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -393,120 +442,160 @@ private fun EquipmentConfigDialog(
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (error != null) {
-                    Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    label = { Text("Config Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = otaName, onValueChange = { otaName = it },
-                    label = { Text("OTA Name (e.g. Celestron C8)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = cameraName, onValueChange = { cameraName = it },
-                    label = { Text("Camera Name (e.g. ZWO ASI 294MC Pro)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = focalLength, onValueChange = { focalLength = it },
-                    label = { Text("Focal Length (mm)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = aperture, onValueChange = { aperture = it },
-                    label = { Text("Aperture (mm)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = focalReducerFactor, onValueChange = { focalReducerFactor = it },
-                    label = { Text("Focal Reducer (1.0 = none)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = pixelSize, onValueChange = { pixelSize = it },
-                    label = { Text("Pixel Size (µm)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = resolutionWidth, onValueChange = { resolutionWidth = it },
-                    label = { Text("Resolution Width (px)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = resolutionHeight, onValueChange = { resolutionHeight = it },
-                    label = { Text("Resolution Height (px)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                // OTA dropdown
+                ExposedDropdownMenuBox(
+                    expanded = otaExpanded,
+                    onExpandedChange = { otaExpanded = it }
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Supports External Filters", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(
+                        value = selectedOta.name,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Telescope (OTA)") },
+                        supportingText = { Text("FL ${selectedOta.focalLength.toInt()}mm · Ø${selectedOta.aperture.toInt()}mm") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = otaExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = otaExpanded,
+                        onDismissRequest = { otaExpanded = false }
+                    ) {
+                        otas.forEach { ota ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(ota.name, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            "FL ${ota.focalLength.toInt()}mm · Ø${ota.aperture.toInt()}mm",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedOta = ota
+                                    otaExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Camera dropdown — disabled for closed systems with a built-in camera
+                ExposedDropdownMenuBox(
+                    expanded = cameraExpanded,
+                    onExpandedChange = { if (builtIn == null) cameraExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = effectiveCamera.name,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = builtIn == null,
+                        label = { Text("Camera") },
+                        supportingText = {
+                            Text("${effectiveCamera.pixelSize}µm · ${effectiveCamera.resolutionWidth}×${effectiveCamera.resolutionHeight}")
+                        },
+                        trailingIcon = { if (builtIn == null) ExposedDropdownMenuDefaults.TrailingIcon(expanded = cameraExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = cameraExpanded,
+                        onDismissRequest = { cameraExpanded = false }
+                    ) {
+                        cameras.forEach { camera ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(camera.name, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            "${camera.pixelSize}µm · ${camera.resolutionWidth}×${camera.resolutionHeight}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedCamera = camera
+                                    cameraExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Reducer / Barlow dropdown — disabled for closed systems
+                ExposedDropdownMenuBox(
+                    expanded = reducerExpanded,
+                    onExpandedChange = { if (builtIn == null) reducerExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = effectiveReducer.label,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = builtIn == null,
+                        label = { Text("Reducer / Barlow") },
+                        trailingIcon = { if (builtIn == null) ExposedDropdownMenuDefaults.TrailingIcon(expanded = reducerExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = reducerExpanded,
+                        onDismissRequest = { reducerExpanded = false }
+                    ) {
+                        reducers.forEach { reducer ->
+                            DropdownMenuItem(
+                                text = { Text(reducer.label, style = MaterialTheme.typography.bodyMedium) },
+                                onClick = {
+                                    selectedReducer = reducer
+                                    reducerExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Summary
+                val effectiveFL = selectedOta.focalLength * effectiveReducer.factor
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text("Config: ${buildName()}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "Effective FL: ${effectiveFL.toInt()}mm · Aperture: ${selectedOta.aperture.toInt()}mm",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (!selectedOta.filtersSupported) {
                         Text(
-                            "Disable for closed optical systems (e.g. SeeStar)",
+                            "No external filter support",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
-                    Switch(
-                        checked = filtersSupported,
-                        onCheckedChange = { filtersSupported = it }
-                    )
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                val fl  = focalLength.toDoubleOrNull()
-                val ap  = aperture.toDoubleOrNull()
-                val frf = focalReducerFactor.toDoubleOrNull()
-                val ps  = pixelSize.toDoubleOrNull()
-                val rw  = resolutionWidth.toIntOrNull()
-                val rh  = resolutionHeight.toIntOrNull()
-                when {
-                    name.isBlank() -> error = "Name is required"
-                    fl  == null    -> error = "Invalid focal length"
-                    ap  == null    -> error = "Invalid aperture"
-                    frf == null    -> error = "Invalid focal reducer factor"
-                    ps  == null    -> error = "Invalid pixel size"
-                    rw  == null    -> error = "Invalid resolution width"
-                    rh  == null    -> error = "Invalid resolution height"
-                    else -> onSave(EquipmentConfig(
-                        id                 = initial?.id ?: 0L,
-                        name               = name.trim(),
-                        otaName            = otaName.trim(),
-                        cameraName         = cameraName.trim(),
-                        focalLength        = fl,
-                        aperture           = ap,
-                        focalReducerFactor = frf,
-                        pixelSize          = ps,
-                        resolutionWidth    = rw,
-                        resolutionHeight   = rh,
-                        filtersSupported   = filtersSupported
-                    ))
-                }
+                onSave(EquipmentConfig(
+                    id                 = initial?.id ?: 0L,
+                    name               = buildName(),
+                    otaName            = selectedOta.name,
+                    cameraName         = effectiveCamera.name,
+                    focalLength        = selectedOta.focalLength,
+                    aperture           = selectedOta.aperture,
+                    focalReducerFactor = effectiveReducer.factor,
+                    pixelSize          = effectiveCamera.pixelSize,
+                    resolutionWidth    = effectiveCamera.resolutionWidth,
+                    resolutionHeight   = effectiveCamera.resolutionHeight,
+                    filtersSupported   = selectedOta.filtersSupported
+                ))
             }) { Text("Save") }
         },
         dismissButton = {
