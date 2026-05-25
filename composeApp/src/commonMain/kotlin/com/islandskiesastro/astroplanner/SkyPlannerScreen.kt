@@ -137,8 +137,14 @@ fun SkyPlannerScreen(
     }
 
     LaunchedEffect(location?.latitude, location?.longitude, observingD) {
-        sliderTwilightTimes = if (location != null) {
+        if (location != null) {
             val d = observingD ?: AstronomyService.daysFromJ2000()
+            // If already within the current window, skip recomputation. Recomputing with d near
+            // the boundary can produce a slightly different tMorn due to bisection rounding,
+            // making d > times.second true and falsely advancing to the next night.
+            val current = sliderTwilightTimes
+            if (current != null && d >= current.first && d <= current.second) return@LaunchedEffect
+
             var times = AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, d)
             // If d is already past morning twilight (daytime), advance to find the next night.
             if (times != null && d > times.second) {
@@ -148,8 +154,10 @@ fun SkyPlannerScreen(
             if (times != null && observingD != null && observingD!! < times.first) {
                 observingD = times.first
             }
-            times
-        } else null
+            sliderTwilightTimes = times
+        } else {
+            sliderTwilightTimes = null
+        }
     }
 
     fun loadObjects() {
@@ -296,7 +304,7 @@ fun SkyPlannerScreen(
                             Spacer(Modifier.width(4.dp))
                             Slider(
                                 value = ((currentD - eveD) / (mornD - eveD)).toFloat().coerceIn(0f, 1f),
-                                onValueChange = { f -> observingD = eveD + f * (mornD - eveD) },
+                                onValueChange = { f -> observingD = (eveD + f * (mornD - eveD)).coerceIn(eveD, mornD) },
                                 modifier = Modifier.weight(1f)
                             )
                             Spacer(Modifier.width(4.dp))
