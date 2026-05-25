@@ -29,11 +29,8 @@ data class DsoResponse(
 
 @Serializable
 data class ImageResponse(
-    val objectId: String,
-    val url: String,
-    val thumbX: Int? = null,
-    val thumbY: Int? = null,
-    val thumbDim: Int? = null
+    val catalogId: String? = null,
+    val cloudinaryId: String
 )
 
 class CelestialObjectRepository(
@@ -75,10 +72,7 @@ class CelestialObjectRepository(
                 objectId  = row.objectId,
                 url       = row.url,
                 fullPath  = resolve(row.fullPath),
-                thumbPath = resolve(row.thumbPath),
-                thumbX    = row.thumbX?.toInt(),
-                thumbY    = row.thumbY?.toInt(),
-                thumbDim  = row.thumbDim?.toInt()
+                thumbPath = resolve(row.thumbPath)
             )
         }
     }
@@ -133,37 +127,42 @@ class CelestialObjectRepository(
             imageQueries.deleteAll()
             val responseText = client.get("${Config.IMAGES_URL}?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}").bodyAsText()
             val imageList: List<ImageResponse> = json.decodeFromString(responseText)
-            onStatus("Downloading ${imageList.size} images...")
+            // Normalize catalogId to match DSO objectId format (e.g. "IC 1805" → "ic1805")
+            // deduplicate so only the first image per object is used
+            val seenIds = mutableSetOf<String>()
+            val withCatalogId = imageList
+                .filter { it.catalogId != null }
+                .mapNotNull { img ->
+                    val objectId = img.catalogId!!.lowercase().replace(" ", "")
+                    if (seenIds.add(objectId)) img.copy(catalogId = objectId) else null
+                }
+            onStatus("Downloading ${withCatalogId.size} images...")
 
-            imageList.forEach { img ->
-                imageQueries.insert(img.objectId, img.url, null, null,
-                    img.thumbX?.toLong(), img.thumbY?.toLong(), img.thumbDim?.toLong())
+            withCatalogId.forEach { img ->
+                val fullUrl = "${Config.CLOUDINARY_BASE}/w_1080,q_auto,f_jpg/${img.cloudinaryId}"
+                imageQueries.insert(img.catalogId!!, fullUrl, null, null, null, null, null)
             }
 
-            imageList.forEachIndexed { index, img ->
+            withCatalogId.forEachIndexed { index, img ->
                 try {
-                    onStatus("Downloading ${index + 1}/${imageList.size}: ${img.objectId}")
-                    val bytes = client.get(img.url).bodyAsBytes()
+                    onStatus("Downloading ${index + 1}/${withCatalogId.size}: ${img.catalogId}")
+                    val fullUrl = "${Config.CLOUDINARY_BASE}/w_1080,q_auto,f_jpg/${img.cloudinaryId}"
+                    val thumbUrl = "${Config.CLOUDINARY_BASE}/w_400,q_auto,f_jpg/${img.cloudinaryId}"
 
-                    val fullFilename = "${img.objectId}_full.jpg"
-                    imageStorage.write(fullFilename, bytes)
+                    val fullFilename = "${img.catalogId}_full.jpg"
+                    imageStorage.write(fullFilename, client.get(fullUrl).bodyAsBytes())
                     val fullPath = "${imageStorage.getDir()}/$fullFilename"
 
-                    val thumbFilename = "${img.objectId}_thumb.jpg"
-                    val thumbBytes = if (img.thumbX != null && img.thumbY != null && img.thumbDim != null) {
-                        cropImageBytes(bytes, img.thumbX, img.thumbY, img.thumbDim)
-                    } else {
-                        bytes
-                    }
-                    imageStorage.write(thumbFilename, thumbBytes)
+                    val thumbFilename = "${img.catalogId}_thumb.jpg"
+                    imageStorage.write(thumbFilename, client.get(thumbUrl).bodyAsBytes())
                     val thumbPath = "${imageStorage.getDir()}/$thumbFilename"
 
-                    imageQueries.updatePaths(fullPath, thumbPath, img.objectId)
+                    imageQueries.updatePaths(fullPath, thumbPath, img.catalogId!!)
                 } catch (e: Exception) {
-                    onStatus("Failed: ${img.objectId} — ${e.message}")
+                    onStatus("Failed: ${img.catalogId} — ${e.message}")
                 }
             }
-            onStatus("Images updated successfully (${imageList.size} objects)")
+            onStatus("Images updated successfully (${withCatalogId.size} objects)")
         } catch (e: Exception) {
             onStatus("Image update failed: ${e.message}")
         }
