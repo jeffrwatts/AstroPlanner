@@ -65,6 +65,15 @@ private fun Double.toDecString(): String {
     return "%s%02d:%02d:%05.2f".format(sign, d, m, s)
 }
 
+// Auto-insert ':' after the 2nd and 4th digit while typing.
+// Ignores deletions and non-digit characters so signs and dots pass through unaffected.
+private fun autoInsertColon(old: String, new: String): String {
+    if (new.length <= old.length) return new
+    if (new.isEmpty() || !new.last().isDigit()) return new
+    val digitCount = new.count { it.isDigit() }
+    return if (digitCount == 2 || digitCount == 4) "$new:" else new
+}
+
 // HH:MM:SS → degrees, null if invalid
 private fun parseRa(input: String): Double? {
     val parts = input.trim().split(":")
@@ -194,7 +203,7 @@ fun AddObjectScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = raInput,
-                onValueChange = { raInput = it; saveError = "" },
+                onValueChange = { raInput = autoInsertColon(raInput, it); saveError = "" },
                 label = { Text("RA (HH:MM:SS)") },
                 placeholder = { Text("e.g. 20:12:07") },
                 modifier = Modifier.weight(1f),
@@ -204,7 +213,7 @@ fun AddObjectScreen(
             )
             OutlinedTextField(
                 value = decInput,
-                onValueChange = { decInput = it; saveError = "" },
+                onValueChange = { decInput = autoInsertColon(decInput, it); saveError = "" },
                 label = { Text("Dec (±DD:MM:SS)") },
                 placeholder = { Text("e.g. +38:21:09") },
                 modifier = Modifier.weight(1f),
