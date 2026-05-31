@@ -103,7 +103,7 @@ class CelestialObjectRepository(
         if (existsByObjectId(objectId)) return SimbadResult.AlreadyExists
 
         return try {
-            val adql = "SELECT ra,dec,main_id,otype_txt FROM basic JOIN ident ON oid=oid WHERE id='${rawInput.trim()}'"
+            val adql = "SELECT basic.ra, basic.dec, basic.main_id, basic.otype FROM basic JOIN ident ON basic.oid = ident.oidref WHERE ident.id = '${rawInput.trim()}'"
             val responseText = client.get(Config.SIMBAD_TAP_URL) {
                 parameter("REQUEST", "doQuery")
                 parameter("LANG", "ADQL")

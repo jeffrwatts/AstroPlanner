@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 private val selectableTypes = listOf(
     ObjectType.GALAXY,
@@ -42,6 +43,52 @@ private val selectableTypes = listOf(
     ObjectType.STAR,
     ObjectType.UNKNOWN
 )
+
+// Degrees → HH:MM:SS
+private fun Double.toRaString(): String {
+    val hours = this / 15.0
+    val h = hours.toInt()
+    val rem1 = (hours - h) * 60.0
+    val m = rem1.toInt()
+    val s = (rem1 - m) * 60.0
+    return "%02d:%02d:%05.2f".format(h, m, s)
+}
+
+// Degrees → ±DD:MM:SS
+private fun Double.toDecString(): String {
+    val sign = if (this < 0) "-" else "+"
+    val a = abs(this)
+    val d = a.toInt()
+    val rem1 = (a - d) * 60.0
+    val m = rem1.toInt()
+    val s = (rem1 - m) * 60.0
+    return "%s%02d:%02d:%05.2f".format(sign, d, m, s)
+}
+
+// HH:MM:SS → degrees, null if invalid
+private fun parseRa(input: String): Double? {
+    val parts = input.trim().split(":")
+    if (parts.size != 3) return null
+    val h = parts[0].toDoubleOrNull() ?: return null
+    val m = parts[1].toDoubleOrNull() ?: return null
+    val s = parts[2].toDoubleOrNull() ?: return null
+    if (h < 0 || h >= 24 || m < 0 || m >= 60 || s < 0 || s >= 60) return null
+    return (h + m / 60.0 + s / 3600.0) * 15.0
+}
+
+// ±DD:MM:SS → degrees, null if invalid
+private fun parseDec(input: String): Double? {
+    val trimmed = input.trim()
+    val sign = if (trimmed.startsWith("-")) -1.0 else 1.0
+    val parts = trimmed.trimStart('+', '-').split(":")
+    if (parts.size != 3) return null
+    val d = parts[0].toDoubleOrNull() ?: return null
+    val m = parts[1].toDoubleOrNull() ?: return null
+    val s = parts[2].toDoubleOrNull() ?: return null
+    if (d < 0 || d > 90 || m < 0 || m >= 60 || s < 0 || s >= 60) return null
+    val result = sign * (d + m / 60.0 + s / 3600.0)
+    return if (result < -90.0 || result > 90.0) null else result
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,8 +153,8 @@ fun AddObjectScreen(
                     when (val result = repository.lookupSimbad(objectIdInput)) {
                         is SimbadResult.Success -> {
                             displayName = result.displayName
-                            raInput = "%.4f".format(result.ra)
-                            decInput = "%.4f".format(result.dec)
+                            raInput = result.ra.toRaString()
+                            decInput = result.dec.toDecString()
                             selectedType = result.type
                             lookupState = LookupState.Found
                         }
@@ -148,21 +195,21 @@ fun AddObjectScreen(
             OutlinedTextField(
                 value = raInput,
                 onValueChange = { raInput = it; saveError = "" },
-                label = { Text("RA (degrees)") },
-                placeholder = { Text("0.0 – 360.0") },
+                label = { Text("RA (HH:MM:SS)") },
+                placeholder = { Text("e.g. 20:12:07") },
                 modifier = Modifier.weight(1f),
                 enabled = fieldsEnabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true
             )
             OutlinedTextField(
                 value = decInput,
                 onValueChange = { decInput = it; saveError = "" },
-                label = { Text("Dec (degrees)") },
-                placeholder = { Text("-90.0 – +90.0") },
+                label = { Text("Dec (±DD:MM:SS)") },
+                placeholder = { Text("e.g. +38:21:09") },
                 modifier = Modifier.weight(1f),
                 enabled = fieldsEnabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true
             )
         }
@@ -224,15 +271,15 @@ fun AddObjectScreen(
             OutlinedButton(onClick = onDismiss) { Text("Cancel") }
             Button(
                 onClick = {
-                    val ra = raInput.toDoubleOrNull()
-                    val dec = decInput.toDoubleOrNull()
+                    val ra = parseRa(raInput)
+                    val dec = parseDec(decInput)
                     val mag = if (magnitudeInput.isBlank()) null else magnitudeInput.toDoubleOrNull()
 
                     when {
                         objectIdInput.isBlank() -> saveError = "Object ID is required"
                         displayName.isBlank() -> saveError = "Display name is required"
-                        ra == null || ra < 0.0 || ra > 360.0 -> saveError = "RA must be a number between 0 and 360"
-                        dec == null || dec < -90.0 || dec > 90.0 -> saveError = "Dec must be a number between -90 and +90"
+                        ra == null -> saveError = "RA must be in HH:MM:SS format (e.g. 20:12:07)"
+                        dec == null -> saveError = "Dec must be in ±DD:MM:SS format (e.g. +38:21:09)"
                         magnitudeInput.isNotBlank() && mag == null -> saveError = "Magnitude must be a valid number"
                         else -> {
                             val normalizedId = objectIdInput.trim().lowercase().replace(" ", "")
