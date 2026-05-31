@@ -193,7 +193,7 @@ internal fun DetailScreen(
                             onClick = {
                                 celestialObjectRepository!!.deleteUserObject(skyObj.obj.id)
                                 showDeleteConfirm = false
-                                onDeleted()
+                                onDeleted?.invoke()
                             },
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) { Text("Delete") }
