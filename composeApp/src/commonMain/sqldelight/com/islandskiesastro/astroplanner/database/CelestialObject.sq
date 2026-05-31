@@ -10,7 +10,8 @@ CREATE TABLE celestialObject (
     recommended     INTEGER NOT NULL DEFAULT 1,
     magnitude       REAL,
     angularSizeMajor REAL,
-    angularSizeMinor REAL
+    angularSizeMinor REAL,
+    userAdded       INTEGER NOT NULL DEFAULT 0
 );
 
 selectAll:
@@ -19,9 +20,22 @@ SELECT * FROM celestialObject ORDER BY id;
 selectRecommended:
 SELECT * FROM celestialObject WHERE recommended = 1 ORDER BY id;
 
+selectByObjectId:
+SELECT * FROM celestialObject WHERE objectId = ?;
+
 insert:
 INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+insertUserObject:
+INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor, userAdded)
+VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1);
+
 deleteAll:
 DELETE FROM celestialObject;
+
+deleteSystemObjects:
+DELETE FROM celestialObject WHERE userAdded = 0;
+
+deleteById:
+DELETE FROM celestialObject WHERE id = ?;

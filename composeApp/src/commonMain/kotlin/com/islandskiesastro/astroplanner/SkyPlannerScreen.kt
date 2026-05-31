@@ -196,6 +196,7 @@ fun SkyPlannerScreen(
             locationName              = locationName,
             onBack                    = { selectedObject = null },
             onBackActionChanged       = onBackActionChanged,
+            onDeleted                 = { selectedObject = null; loadObjects() },
             timeZone                  = timeZone
         )
         return

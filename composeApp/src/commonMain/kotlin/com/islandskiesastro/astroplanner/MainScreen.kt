@@ -141,7 +141,7 @@ fun MainScreen(
                     )
                     Screen.Info       -> InfoScreen(effectiveLocation, hasLocationPermission, timeZone = effectiveTimeZone)
                     Screen.AltAzm     -> AltAzmScreen(orientationService, effectiveLocation, hasLocationPermission)
-                    Screen.Update     -> UpdateScreen(repository)
+                    Screen.Update     -> UpdateScreen(repository, onBackActionChanged = { backAction = it })
                     Screen.Settings   -> SettingsScreen(
                         useGpsLocation      = useGpsLocation,
                         savedLocationIndex  = savedLocationIndex,
