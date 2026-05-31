@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -31,7 +32,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -44,7 +47,7 @@ private val selectableTypes = listOf(
     ObjectType.UNKNOWN
 )
 
-// Degrees → HH:MM:SS
+// Degrees → HH:MM:SS.ss
 private fun Double.toRaString(): String {
     val hours = this / 15.0
     val h = hours.toInt()
@@ -54,27 +57,29 @@ private fun Double.toRaString(): String {
     return "%02d:%02d:%05.2f".format(h, m, s)
 }
 
-// Degrees → ±DD:MM:SS
-private fun Double.toDecString(): String {
-    val sign = if (this < 0) "-" else "+"
+// Degrees → DD:MM:SS.ss (no sign — sign is tracked separately)
+private fun Double.toDecBodyString(): String {
     val a = abs(this)
     val d = a.toInt()
     val rem1 = (a - d) * 60.0
     val m = rem1.toInt()
     val s = (rem1 - m) * 60.0
-    return "%s%02d:%02d:%05.2f".format(sign, d, m, s)
+    return "%02d:%02d:%05.2f".format(d, m, s)
 }
 
-// Auto-insert ':' after the 2nd and 4th digit while typing.
-// Ignores deletions and non-digit characters so signs and dots pass through unaffected.
-private fun autoInsertColon(old: String, new: String): String {
-    if (new.length <= old.length) return new
-    if (new.isEmpty() || !new.last().isDigit()) return new
-    val digitCount = new.count { it.isDigit() }
-    return if (digitCount == 2 || digitCount == 4) "$new:" else new
+// Auto-insert ':' after the 2nd and 4th digit. Returns TextFieldValue so the
+// cursor is explicitly placed after the inserted colon.
+private fun autoInsertColon(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
+    if (new.text.length <= old.text.length) return new          // deletion — leave alone
+    if (new.text.isEmpty() || !new.text.last().isDigit()) return new  // non-digit — leave alone
+    val digitCount = new.text.count { it.isDigit() }
+    return if (digitCount == 2 || digitCount == 4) {
+        val withColon = "${new.text}:"
+        new.copy(text = withColon, selection = TextRange(withColon.length))
+    } else new
 }
 
-// HH:MM:SS → degrees, null if invalid
+// HH:MM:SS[.ss] → degrees, null if format is invalid
 private fun parseRa(input: String): Double? {
     val parts = input.trim().split(":")
     if (parts.size != 3) return null
@@ -85,18 +90,15 @@ private fun parseRa(input: String): Double? {
     return (h + m / 60.0 + s / 3600.0) * 15.0
 }
 
-// ±DD:MM:SS → degrees, null if invalid
-private fun parseDec(input: String): Double? {
-    val trimmed = input.trim()
-    val sign = if (trimmed.startsWith("-")) -1.0 else 1.0
-    val parts = trimmed.trimStart('+', '-').split(":")
+// DD:MM:SS[.ss] (no sign) → absolute degrees, null if invalid
+private fun parseDecBody(input: String): Double? {
+    val parts = input.trim().split(":")
     if (parts.size != 3) return null
     val d = parts[0].toDoubleOrNull() ?: return null
     val m = parts[1].toDoubleOrNull() ?: return null
     val s = parts[2].toDoubleOrNull() ?: return null
     if (d < 0 || d > 90 || m < 0 || m >= 60 || s < 0 || s >= 60) return null
-    val result = sign * (d + m / 60.0 + s / 3600.0)
-    return if (result < -90.0 || result > 90.0) null else result
+    return d + m / 60.0 + s / 3600.0
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,16 +112,15 @@ fun AddObjectScreen(
     var lookupState by remember { mutableStateOf<LookupState>(LookupState.Idle) }
 
     var displayName by remember { mutableStateOf("") }
-    var raInput by remember { mutableStateOf("") }
-    var decInput by remember { mutableStateOf("") }
+    var raInput by remember { mutableStateOf(TextFieldValue("")) }
+    var decInput by remember { mutableStateOf(TextFieldValue("")) }
+    var decPositive by remember { mutableStateOf(true) }
     var selectedType by remember { mutableStateOf(ObjectType.UNKNOWN) }
     var magnitudeInput by remember { mutableStateOf("") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
-
     var saveError by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
-
     val fieldsEnabled = lookupState !is LookupState.Loading
 
     Column(
@@ -143,8 +144,8 @@ fun AddObjectScreen(
             isError = lookupState is LookupState.AlreadyExists || lookupState is LookupState.NotFound,
             supportingText = when (lookupState) {
                 is LookupState.AlreadyExists -> ({ Text("Already in catalog", color = MaterialTheme.colorScheme.error) })
-                is LookupState.NotFound -> ({ Text("Not found in SIMBAD", color = MaterialTheme.colorScheme.error) })
-                is LookupState.LookupError -> ({ Text((lookupState as LookupState.LookupError).message, color = MaterialTheme.colorScheme.error) })
+                is LookupState.NotFound      -> ({ Text("Not found in SIMBAD", color = MaterialTheme.colorScheme.error) })
+                is LookupState.LookupError   -> ({ Text((lookupState as LookupState.LookupError).message, color = MaterialTheme.colorScheme.error) })
                 else -> null
             },
             modifier = Modifier.fillMaxWidth(),
@@ -161,15 +162,16 @@ fun AddObjectScreen(
                     saveError = ""
                     when (val result = repository.lookupSimbad(objectIdInput)) {
                         is SimbadResult.Success -> {
-                            displayName = result.displayName
-                            raInput = result.ra.toRaString()
-                            decInput = result.dec.toDecString()
+                            displayName  = result.displayName
+                            raInput      = TextFieldValue(result.ra.toRaString())
+                            decPositive  = result.dec >= 0
+                            decInput     = TextFieldValue(result.dec.toDecBodyString())
                             selectedType = result.type
-                            lookupState = LookupState.Found
+                            lookupState  = LookupState.Found
                         }
                         is SimbadResult.AlreadyExists -> lookupState = LookupState.AlreadyExists
-                        is SimbadResult.NotFound -> lookupState = LookupState.NotFound
-                        is SimbadResult.Error -> lookupState = LookupState.LookupError(result.message)
+                        is SimbadResult.NotFound      -> lookupState = LookupState.NotFound
+                        is SimbadResult.Error         -> lookupState = LookupState.LookupError(result.message)
                     }
                 }
             },
@@ -200,25 +202,38 @@ fun AddObjectScreen(
 
         Spacer(Modifier.height(8.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = raInput,
-                onValueChange = { raInput = autoInsertColon(raInput, it); saveError = "" },
-                label = { Text("RA (HH:MM:SS)") },
-                placeholder = { Text("e.g. 20:12:07") },
-                modifier = Modifier.weight(1f),
+        // RA field
+        OutlinedTextField(
+            value = raInput,
+            onValueChange = { raInput = autoInsertColon(raInput, it); saveError = "" },
+            label = { Text("RA (HH:MM:SS)") },
+            placeholder = { Text("e.g. 20:12:07") },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = fieldsEnabled,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        // Dec field with +/− toggle
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = { decPositive = !decPositive },
                 enabled = fieldsEnabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true
-            )
+                modifier = Modifier.width(56.dp).height(56.dp)
+            ) {
+                Text(if (decPositive) "+" else "−")
+            }
+            Spacer(Modifier.width(8.dp))
             OutlinedTextField(
                 value = decInput,
                 onValueChange = { decInput = autoInsertColon(decInput, it); saveError = "" },
-                label = { Text("Dec (±DD:MM:SS)") },
-                placeholder = { Text("e.g. +38:21:09") },
+                label = { Text("Dec (DD:MM:SS)") },
+                placeholder = { Text("e.g. 38:21:09") },
                 modifier = Modifier.weight(1f),
                 enabled = fieldsEnabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true
             )
         }
@@ -245,10 +260,7 @@ fun AddObjectScreen(
                 selectableTypes.forEach { type ->
                     DropdownMenuItem(
                         text = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                        onClick = {
-                            selectedType = type
-                            typeDropdownExpanded = false
-                        }
+                        onClick = { selectedType = type; typeDropdownExpanded = false }
                     )
                 }
             }
@@ -280,25 +292,24 @@ fun AddObjectScreen(
             OutlinedButton(onClick = onDismiss) { Text("Cancel") }
             Button(
                 onClick = {
-                    val ra = parseRa(raInput)
-                    val dec = parseDec(decInput)
+                    val ra  = parseRa(raInput.text)
+                    val decAbs = parseDecBody(decInput.text)
+                    val dec = decAbs?.let { if (decPositive) it else -it }
                     val mag = if (magnitudeInput.isBlank()) null else magnitudeInput.toDoubleOrNull()
-
                     when {
-                        objectIdInput.isBlank() -> saveError = "Object ID is required"
-                        displayName.isBlank() -> saveError = "Display name is required"
-                        ra == null -> saveError = "RA must be in HH:MM:SS format (e.g. 20:12:07)"
-                        dec == null -> saveError = "Dec must be in ±DD:MM:SS format (e.g. +38:21:09)"
-                        magnitudeInput.isNotBlank() && mag == null -> saveError = "Magnitude must be a valid number"
+                        objectIdInput.isBlank()                          -> saveError = "Object ID is required"
+                        displayName.isBlank()                            -> saveError = "Display name is required"
+                        ra == null                                       -> saveError = "RA must be HH:MM:SS (e.g. 20:12:07)"
+                        dec == null                                      -> saveError = "Dec must be DD:MM:SS (e.g. 38:21:09)"
+                        magnitudeInput.isNotBlank() && mag == null       -> saveError = "Magnitude must be a valid number"
                         else -> {
-                            val normalizedId = objectIdInput.trim().lowercase().replace(" ", "")
                             repository.addUserObject(
                                 displayName = displayName.trim(),
-                                objectId = normalizedId,
-                                ra = ra,
-                                dec = dec,
-                                type = selectedType,
-                                magnitude = mag
+                                objectId    = objectIdInput.trim().lowercase().replace(" ", ""),
+                                ra          = ra,
+                                dec         = dec,
+                                type        = selectedType,
+                                magnitude   = mag
                             )
                             onSaved()
                         }
