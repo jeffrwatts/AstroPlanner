@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,7 +23,12 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 @Composable
-fun UpdateScreen(repository: CelestialObjectRepository) {
+fun UpdateScreen(
+    repository: CelestialObjectRepository,
+    onBackActionChanged: ((() -> Unit)?) -> Unit = {}
+) {
+    var showAddObject by remember { mutableStateOf(false) }
+
     var dsoRunning by remember { mutableStateOf(false) }
     var dsoStatus by remember { mutableStateOf("") }
     var dsoError by remember { mutableStateOf(false) }
@@ -32,11 +39,32 @@ fun UpdateScreen(repository: CelestialObjectRepository) {
 
     val scope = rememberCoroutineScope()
 
+    LaunchedEffect(showAddObject) {
+        onBackActionChanged(if (showAddObject) ({ showAddObject = false }) else null)
+    }
+
+    if (showAddObject) {
+        AddObjectScreen(
+            repository = repository,
+            onDismiss  = { showAddObject = false },
+            onSaved    = { showAddObject = false }
+        )
+        return
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Button(onClick = { showAddObject = true }) {
+            Text("Add Custom Object")
+        }
+
+        Spacer(Modifier.height(24.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(24.dp))
+
         Button(
             onClick = {
                 dsoRunning = true

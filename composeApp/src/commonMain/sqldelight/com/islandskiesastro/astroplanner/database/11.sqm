@@ -1,0 +1,1 @@
+ALTER TABLE celestialObject ADD COLUMN userAdded INTEGER NOT NULL DEFAULT 0;

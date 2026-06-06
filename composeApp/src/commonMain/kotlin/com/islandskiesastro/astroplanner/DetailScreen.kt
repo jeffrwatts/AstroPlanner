@@ -13,10 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +48,7 @@ internal fun DetailScreen(
     locationName: String = "GPS Location",
     onBack: () -> Unit = {},
     onBackActionChanged: ((() -> Unit)?) -> Unit = {},
+    onDeleted: (() -> Unit)? = null,
     timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     val twilightTimes = remember(location?.latitude, location?.longitude, observingD) {
@@ -53,9 +57,10 @@ internal fun DetailScreen(
         else null
     }
 
-    var showFov          by remember { mutableStateOf(false) }
-    var showPlanCreation by remember { mutableStateOf(false) }
-    var draftPlan        by remember { mutableStateOf<ObservingPlan?>(null) }
+    var showFov            by remember { mutableStateOf(false) }
+    var showPlanCreation   by remember { mutableStateOf(false) }
+    var draftPlan          by remember { mutableStateOf<ObservingPlan?>(null) }
+    var showDeleteConfirm  by remember { mutableStateOf(false) }
 
     LaunchedEffect(showFov, showPlanCreation, draftPlan) {
         when {
@@ -168,6 +173,35 @@ internal fun DetailScreen(
                         Text("Plan")
                     }
                 }
+                if (skyObj.obj.userAdded && celestialObjectRepository != null && onDeleted != null) {
+                    OutlinedButton(
+                        onClick = { showDeleteConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Delete")
+                    }
+                }
+            }
+
+            if (showDeleteConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteConfirm = false },
+                    title = { Text("Delete ${skyObj.obj.displayName}?") },
+                    text = { Text("This will remove it from your catalog. This cannot be undone.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                celestialObjectRepository!!.deleteUserObject(skyObj.obj.id)
+                                showDeleteConfirm = false
+                                onDeleted?.invoke()
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Delete") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                    }
+                )
             }
 
             if (location != null) {

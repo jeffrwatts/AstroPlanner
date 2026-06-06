@@ -5,12 +5,28 @@ import com.islandskiesastro.astroplanner.database.CelestialObject as DbRow
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+sealed class SimbadResult {
+    data class Success(
+        val displayName: String,
+        val ra: Double,
+        val dec: Double,
+        val type: ObjectType
+    ) : SimbadResult()
+    object AlreadyExists : SimbadResult()
+    object NotFound : SimbadResult()
+    data class Error(val message: String) : SimbadResult()
+}
 
 @Serializable
 data class DsoResponse(
@@ -77,9 +93,76 @@ class CelestialObjectRepository(
         }
     }
 
+    fun existsByObjectId(objectId: String): Boolean =
+        queries.selectByObjectId(objectId).executeAsOneOrNull() != null
+
+    suspend fun lookupSimbad(rawInput: String): SimbadResult {
+        val objectId = rawInput.trim().lowercase().replace(" ", "")
+        if (objectId.isEmpty()) return SimbadResult.Error("Object ID cannot be empty")
+
+        if (existsByObjectId(objectId)) return SimbadResult.AlreadyExists
+
+        return try {
+            val adql = "SELECT basic.ra, basic.dec, basic.main_id, basic.otype FROM basic JOIN ident ON basic.oid = ident.oidref WHERE ident.id = '${rawInput.trim()}'"
+            val responseText = client.get(Config.SIMBAD_TAP_URL) {
+                parameter("REQUEST", "doQuery")
+                parameter("LANG", "ADQL")
+                parameter("FORMAT", "json")
+                parameter("QUERY", adql)
+            }.bodyAsText()
+
+            val root = Json.parseToJsonElement(responseText).jsonObject
+            val data = root["data"]?.jsonArray ?: return SimbadResult.Error("Unexpected SIMBAD response")
+            if (data.isEmpty()) return SimbadResult.NotFound
+
+            val row = data[0].jsonArray
+            val ra = row[0].jsonPrimitive.content.toDoubleOrNull()
+                ?: return SimbadResult.Error("Could not parse RA from SIMBAD")
+            val dec = row[1].jsonPrimitive.content.toDoubleOrNull()
+                ?: return SimbadResult.Error("Could not parse Dec from SIMBAD")
+            val mainId = row[2].jsonPrimitive.content.trim()
+            val otype = row[3].jsonPrimitive.content
+
+            SimbadResult.Success(
+                displayName = mainId,
+                ra = ra,
+                dec = dec,
+                type = simbadTypeToObjectType(otype)
+            )
+        } catch (e: Exception) {
+            SimbadResult.Error(e.message ?: "SIMBAD lookup failed")
+        }
+    }
+
+    fun addUserObject(
+        displayName: String,
+        objectId: String,
+        ra: Double,
+        dec: Double,
+        type: ObjectType,
+        magnitude: Double?
+    ) {
+        queries.insertUserObject(
+            displayName      = displayName,
+            objectId         = objectId,
+            ra               = ra,
+            dec              = dec,
+            type             = type.name,
+            subType          = null,
+            constellation    = null,
+            magnitude        = magnitude,
+            angularSizeMajor = null,
+            angularSizeMinor = null
+        )
+    }
+
+    fun deleteUserObject(id: Long) {
+        queries.deleteById(id)
+    }
+
     suspend fun updateCatalog(onStatus: (String) -> Unit) {
         onStatus("Inserting planets...")
-        queries.deleteAll()
+        queries.deleteSystemObjects()
         planets.forEach { name ->
             queries.insert(
                 displayName = name.replaceFirstChar { it.uppercase() },
@@ -168,6 +251,17 @@ class CelestialObjectRepository(
         }
     }
 
+    private fun simbadTypeToObjectType(otype: String): ObjectType {
+        val lower = otype.lowercase()
+        return when {
+            "galaxy" in lower || otype in setOf("AGN", "Sy1", "Sy2", "QSO", "EmG", "SBG", "LIN", "BLL", "GiG", "GiC", "BiC") -> ObjectType.GALAXY
+            otype in setOf("HII", "PN", "SNR", "RNe", "DkN", "MoC", "Cld", "GNe", "ISM", "SFR") || "neb" in lower -> ObjectType.NEBULA
+            otype in setOf("GlCl", "OpCl", "Cl*", "Assoc*", "CIG") || (lower.contains("cl") && !lower.contains("nucl")) -> ObjectType.CLUSTER
+            otype == "*" || otype.endsWith("*") -> ObjectType.STAR
+            else -> ObjectType.UNKNOWN
+        }
+    }
+
     private fun dsoTypeToObjectType(type: String): ObjectType = when (type.lowercase()) {
         "nebula" -> ObjectType.NEBULA
         "galaxy" -> ObjectType.GALAXY
@@ -188,6 +282,7 @@ class CelestialObjectRepository(
         recommended = recommended != 0L,
         magnitude = magnitude,
         angularSizeMajor = angularSizeMajor,
-        angularSizeMinor = angularSizeMinor
+        angularSizeMinor = angularSizeMinor,
+        userAdded = userAdded != 0L
     )
 }
