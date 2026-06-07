@@ -32,12 +32,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 private val selectableTypes = listOf(
     ObjectType.GALAXY,
@@ -47,59 +45,6 @@ private val selectableTypes = listOf(
     ObjectType.UNKNOWN
 )
 
-// Degrees → HH:MM:SS.ss
-private fun Double.toRaString(): String {
-    val hours = this / 15.0
-    val h = hours.toInt()
-    val rem1 = (hours - h) * 60.0
-    val m = rem1.toInt()
-    val s = (rem1 - m) * 60.0
-    return "%02d:%02d:%05.2f".format(h, m, s)
-}
-
-// Degrees → DD:MM:SS.ss (no sign — sign is tracked separately)
-private fun Double.toDecBodyString(): String {
-    val a = abs(this)
-    val d = a.toInt()
-    val rem1 = (a - d) * 60.0
-    val m = rem1.toInt()
-    val s = (rem1 - m) * 60.0
-    return "%02d:%02d:%05.2f".format(d, m, s)
-}
-
-// Auto-insert ':' after the 2nd and 4th digit. Returns TextFieldValue so the
-// cursor is explicitly placed after the inserted colon.
-private fun autoInsertColon(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
-    if (new.text.length <= old.text.length) return new          // deletion — leave alone
-    if (new.text.isEmpty() || !new.text.last().isDigit()) return new  // non-digit — leave alone
-    val digitCount = new.text.count { it.isDigit() }
-    return if (digitCount == 2 || digitCount == 4) {
-        val withColon = "${new.text}:"
-        new.copy(text = withColon, selection = TextRange(withColon.length))
-    } else new
-}
-
-// HH:MM:SS[.ss] → degrees, null if format is invalid
-private fun parseRa(input: String): Double? {
-    val parts = input.trim().split(":")
-    if (parts.size != 3) return null
-    val h = parts[0].toDoubleOrNull() ?: return null
-    val m = parts[1].toDoubleOrNull() ?: return null
-    val s = parts[2].toDoubleOrNull() ?: return null
-    if (h < 0 || h >= 24 || m < 0 || m >= 60 || s < 0 || s >= 60) return null
-    return (h + m / 60.0 + s / 3600.0) * 15.0
-}
-
-// DD:MM:SS[.ss] (no sign) → absolute degrees, null if invalid
-private fun parseDecBody(input: String): Double? {
-    val parts = input.trim().split(":")
-    if (parts.size != 3) return null
-    val d = parts[0].toDoubleOrNull() ?: return null
-    val m = parts[1].toDoubleOrNull() ?: return null
-    val s = parts[2].toDoubleOrNull() ?: return null
-    if (d < 0 || d > 90 || m < 0 || m >= 60 || s < 0 || s >= 60) return null
-    return d + m / 60.0 + s / 3600.0
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

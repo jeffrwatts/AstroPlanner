@@ -49,6 +49,7 @@ internal fun DetailScreen(
     onBack: () -> Unit = {},
     onBackActionChanged: ((() -> Unit)?) -> Unit = {},
     onDeleted: (() -> Unit)? = null,
+    onEdited: (() -> Unit)? = null,
     timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     val twilightTimes = remember(location?.latitude, location?.longitude, observingD) {
@@ -61,14 +62,28 @@ internal fun DetailScreen(
     var showPlanCreation   by remember { mutableStateOf(false) }
     var draftPlan          by remember { mutableStateOf<ObservingPlan?>(null) }
     var showDeleteConfirm  by remember { mutableStateOf(false) }
+    var showEdit           by remember { mutableStateOf(false) }
 
-    LaunchedEffect(showFov, showPlanCreation, draftPlan) {
+    LaunchedEffect(showFov, showPlanCreation, draftPlan, showEdit) {
         when {
             showFov           -> onBackActionChanged { showFov = false }
             draftPlan != null -> onBackActionChanged { draftPlan = null; showPlanCreation = false }
             showPlanCreation  -> onBackActionChanged { showPlanCreation = false }
+            showEdit          -> Unit  // EditObjectScreen manages its own back action
             else              -> onBackActionChanged(onBack)
         }
+    }
+
+    if (showEdit && celestialObjectRepository != null && skyObj.obj.userAdded) {
+        EditObjectScreen(
+            obj                 = skyObj.obj,
+            repository          = celestialObjectRepository,
+            equipmentRepository = equipmentRepository,
+            onBackActionChanged = onBackActionChanged,
+            onDismiss           = { showEdit = false },
+            onSaved             = { showEdit = false; onEdited?.invoke() }
+        )
+        return
     }
 
     if (showFov) {
@@ -173,12 +188,19 @@ internal fun DetailScreen(
                         Text("Plan")
                     }
                 }
-                if (skyObj.obj.userAdded && celestialObjectRepository != null && onDeleted != null) {
-                    OutlinedButton(
-                        onClick = { showDeleteConfirm = true },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Delete")
+                if (skyObj.obj.userAdded && celestialObjectRepository != null) {
+                    if (onEdited != null) {
+                        OutlinedButton(onClick = { showEdit = true }) {
+                            Text("Edit")
+                        }
+                    }
+                    if (onDeleted != null) {
+                        OutlinedButton(
+                            onClick = { showDeleteConfirm = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Delete")
+                        }
                     }
                 }
             }

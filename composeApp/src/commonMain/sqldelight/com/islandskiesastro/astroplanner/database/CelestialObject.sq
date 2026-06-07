@@ -39,3 +39,8 @@ DELETE FROM celestialObject WHERE userAdded = 0;
 
 deleteById:
 DELETE FROM celestialObject WHERE id = ?;
+
+updateUserObject:
+UPDATE celestialObject
+SET displayName = ?, ra = ?, dec = ?, type = ?, magnitude = ?
+WHERE id = ? AND userAdded = 1;

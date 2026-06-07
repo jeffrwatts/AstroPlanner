@@ -1,0 +1,59 @@
+package com.islandskiesastro.astroplanner
+
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import kotlin.math.abs
+
+// Degrees → HH:MM:SS.ss
+internal fun Double.toRaString(): String {
+    val hours = this / 15.0
+    val h = hours.toInt()
+    val rem1 = (hours - h) * 60.0
+    val m = rem1.toInt()
+    val s = (rem1 - m) * 60.0
+    return "%02d:%02d:%05.2f".format(h, m, s)
+}
+
+// Absolute degrees → DD:MM:SS.ss (no sign prefix)
+internal fun Double.toDecBodyString(): String {
+    val a = abs(this)
+    val d = a.toInt()
+    val rem1 = (a - d) * 60.0
+    val m = rem1.toInt()
+    val s = (rem1 - m) * 60.0
+    return "%02d:%02d:%05.2f".format(d, m, s)
+}
+
+// HH:MM:SS[.ss] → degrees, null if invalid
+internal fun parseRa(input: String): Double? {
+    val parts = input.trim().split(":")
+    if (parts.size != 3) return null
+    val h = parts[0].toDoubleOrNull() ?: return null
+    val m = parts[1].toDoubleOrNull() ?: return null
+    val s = parts[2].toDoubleOrNull() ?: return null
+    if (h < 0 || h >= 24 || m < 0 || m >= 60 || s < 0 || s >= 60) return null
+    return (h + m / 60.0 + s / 3600.0) * 15.0
+}
+
+// DD:MM:SS[.ss] (no sign) → absolute degrees, null if invalid
+internal fun parseDecBody(input: String): Double? {
+    val parts = input.trim().split(":")
+    if (parts.size != 3) return null
+    val d = parts[0].toDoubleOrNull() ?: return null
+    val m = parts[1].toDoubleOrNull() ?: return null
+    val s = parts[2].toDoubleOrNull() ?: return null
+    if (d < 0 || d > 90 || m < 0 || m >= 60 || s < 0 || s >= 60) return null
+    val result = d + m / 60.0 + s / 3600.0
+    return if (result > 90.0) null else result
+}
+
+// Auto-insert ':' after the 2nd and 4th digit typed; cursor placed after the colon.
+internal fun autoInsertColon(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
+    if (new.text.length <= old.text.length) return new
+    if (new.text.isEmpty() || !new.text.last().isDigit()) return new
+    val digitCount = new.text.count { it.isDigit() }
+    return if (digitCount == 2 || digitCount == 4) {
+        val withColon = "${new.text}:"
+        new.copy(text = withColon, selection = TextRange(withColon.length))
+    } else new
+}

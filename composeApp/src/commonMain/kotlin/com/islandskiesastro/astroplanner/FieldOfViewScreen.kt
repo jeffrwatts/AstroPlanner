@@ -113,7 +113,8 @@ private val scalingOptions = listOf("Linear", "Log", "Sqrt", "HistEq", "LogLog")
 internal fun FieldOfViewScreen(
     skyObj: SkyObject,
     equipmentRepository: EquipmentRepository,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onPickCoordinates: ((ra: Double, dec: Double) -> Unit)? = null
 ) {
     val configs            = remember { equipmentRepository.getAll() }
     var selectedConfig     by remember { mutableStateOf(configs.firstOrNull()) }
@@ -202,6 +203,23 @@ internal fun FieldOfViewScreen(
         isLoading = false
     }
 
+    // Compute the sky coordinates currently under the center of the FOV rectangle,
+    // accounting for any pan offset and image rotation. Mirrors the math in fetchImage().
+    fun currentPointing(): Pair<Double, Double> {
+        if (canvasSize.width == 0 || displayedImageSize == 0.0) {
+            return Pair(displayedCenterRa, displayedCenterDec)
+        }
+        val rotRad = displayedRotation * PI / 180.0
+        val cosR   = cos(rotRad); val sinR = sin(rotRad)
+        val dxSky  = rectOffsetX * cosR - rectOffsetY * sinR
+        val dySky  = rectOffsetX * sinR + rectOffsetY * cosR
+        val dxDeg  = dxSky * displayedImageSize / canvasSize.width
+        val dyDeg  = dySky * displayedImageSize / canvasSize.height
+        val dec    = displayedCenterDec - dyDeg
+        val ra     = displayedCenterRa - dxDeg / cos(dec * PI / 180.0).coerceAtLeast(0.001)
+        return Pair(ra, dec)
+    }
+
     // Auto-load on first entry
     LaunchedEffect(Unit) { fetchImage() }
 
@@ -284,6 +302,19 @@ internal fun FieldOfViewScreen(
                 scope.launch { fetchImage() }
             }, enabled = !isLoading) {
                 Text("Update")
+            }
+            if (onPickCoordinates != null) {
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        val (ra, dec) = currentPointing()
+                        onPickCoordinates(ra, dec)
+                        onBack()
+                    },
+                    enabled = !isLoading && imageBytes != null
+                ) {
+                    Text("Apply")
+                }
             }
             Column(
                 modifier = Modifier.weight(1f),
