@@ -210,15 +210,7 @@ fun AddObjectScreen(
             )
         }
 
-        Spacer(Modifier.height(4.dp))
-        OutlinedButton(
-            onClick = { showFovPicker = true },
-            enabled = canUseFov,
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text("Use FOV")
-        }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
 
         // Dec field with +/− toggle; the 56 dp button + 8 dp spacer aligns the text input with RA above
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -240,6 +232,15 @@ fun AddObjectScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true
             )
+        }
+
+        Spacer(Modifier.height(4.dp))
+        OutlinedButton(
+            onClick = { showFovPicker = true },
+            enabled = canUseFov,
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Use FOV")
         }
 
         Spacer(Modifier.height(8.dp))

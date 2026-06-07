@@ -116,16 +116,19 @@ fun EditObjectScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // RA field
-        OutlinedTextField(
-            value = raInput,
-            onValueChange = { raInput = autoInsertColon(raInput, it); saveError = "" },
-            label = { Text("RA (HH:MM:SS)") },
-            placeholder = { Text("e.g. 20:12:07") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true
-        )
+        // RA indented to align its text input with the Dec text input below
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(64.dp))
+            OutlinedTextField(
+                value = raInput,
+                onValueChange = { raInput = autoInsertColon(raInput, it); saveError = "" },
+                label = { Text("RA (HH:MM:SS)") },
+                placeholder = { Text("e.g. 20:12:07") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true
+            )
+        }
 
         Spacer(Modifier.height(8.dp))
 
