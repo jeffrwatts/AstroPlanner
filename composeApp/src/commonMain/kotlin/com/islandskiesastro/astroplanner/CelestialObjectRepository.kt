@@ -160,6 +160,24 @@ class CelestialObjectRepository(
         queries.deleteById(id)
     }
 
+    fun updateUserObject(
+        id: Long,
+        displayName: String,
+        ra: Double,
+        dec: Double,
+        type: ObjectType,
+        magnitude: Double?
+    ) {
+        queries.updateUserObject(
+            displayName = displayName,
+            ra          = ra,
+            dec         = dec,
+            type        = type.name,
+            magnitude   = magnitude,
+            id          = id
+        )
+    }
+
     suspend fun updateCatalog(onStatus: (String) -> Unit) {
         onStatus("Inserting planets...")
         queries.deleteSystemObjects()

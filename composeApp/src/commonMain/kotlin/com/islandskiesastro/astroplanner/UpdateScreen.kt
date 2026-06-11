@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun UpdateScreen(
     repository: CelestialObjectRepository,
+    equipmentRepository: EquipmentRepository,
     onBackActionChanged: ((() -> Unit)?) -> Unit = {}
 ) {
     var showAddObject by remember { mutableStateOf(false) }
@@ -40,14 +41,17 @@ fun UpdateScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(showAddObject) {
-        onBackActionChanged(if (showAddObject) ({ showAddObject = false }) else null)
+        if (!showAddObject) onBackActionChanged(null)
+        // When showAddObject=true, AddObjectScreen manages the back action itself
     }
 
     if (showAddObject) {
         AddObjectScreen(
-            repository = repository,
-            onDismiss  = { showAddObject = false },
-            onSaved    = { showAddObject = false }
+            repository          = repository,
+            equipmentRepository = equipmentRepository,
+            onBackActionChanged = onBackActionChanged,
+            onDismiss           = { showAddObject = false },
+            onSaved             = { showAddObject = false }
         )
         return
     }

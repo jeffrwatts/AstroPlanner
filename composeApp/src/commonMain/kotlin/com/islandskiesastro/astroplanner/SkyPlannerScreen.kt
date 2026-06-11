@@ -197,6 +197,14 @@ fun SkyPlannerScreen(
             onBack                    = { selectedObject = null },
             onBackActionChanged       = onBackActionChanged,
             onDeleted                 = { selectedObject = null; loadObjects() },
+            onEdited                  = {
+                loadObjects()
+                val editedId = selectedObject?.first?.obj?.id
+                if (editedId != null) {
+                    val updated = skyObjects.find { it.obj.id == editedId }
+                    selectedObject = updated?.let { Pair(it, imagesMap[it.obj.objectId]) }
+                }
+            },
             timeZone                  = timeZone
         )
         return
