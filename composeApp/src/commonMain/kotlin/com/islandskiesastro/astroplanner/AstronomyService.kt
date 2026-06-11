@@ -298,8 +298,8 @@ object AstronomyService {
         val Ms = norm360(316.9670 + 0.0334442282 * d) // Saturn
         val Mu = norm360(142.5905 + 0.011725806  * d) // Uranus
 
-        // The Moon requires a different algorithm; delegate to the platform-specific implementation.
-        if (planetObjectId.lowercase() == "moon") return moonRaDec()
+        // The Moon requires a different algorithm; use the day-specific ephemeris.
+        if (planetObjectId.lowercase() == "moon") return moonRaDecForD(d)
 
         // Step 2+3: heliocentric position, with perturbations where applicable
         val (xh, yh, zh) = when (planetObjectId.lowercase()) {
