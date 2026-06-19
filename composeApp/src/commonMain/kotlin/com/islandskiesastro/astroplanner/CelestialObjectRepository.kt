@@ -46,7 +46,6 @@ data class DsoResponse(
 @Serializable
 data class ImageResponse(
     val objectId: String? = null,
-    val catalogId: String? = null,
     val cloudinaryId: String
 )
 
@@ -237,34 +236,33 @@ class CelestialObjectRepository(
             val seenIds = mutableSetOf<String>()
             val withCatalogId = imageList
                 .mapNotNull { img ->
-                    val rawId = img.catalogId ?: img.objectId ?: return@mapNotNull null
-                    val normalizedId = rawId.lowercase().replace(" ", "")
-                    if (seenIds.add(normalizedId)) img.copy(catalogId = normalizedId) else null
+                    val id = img.objectId ?: return@mapNotNull null
+                    if (seenIds.add(id)) img.copy(objectId = id) else null
                 }
             onStatus("Downloading ${withCatalogId.size} images...")
 
             withCatalogId.forEach { img ->
                 val fullUrl = "${Config.CLOUDINARY_BASE}/w_1080,q_auto,f_jpg/${img.cloudinaryId}"
-                imageQueries.insert(img.catalogId!!, fullUrl, null, null, null, null, null)
+                imageQueries.insert(img.objectId!!, fullUrl, null, null, null, null, null)
             }
 
             withCatalogId.forEachIndexed { index, img ->
                 try {
-                    onStatus("Downloading ${index + 1}/${withCatalogId.size}: ${img.catalogId}")
+                    onStatus("Downloading ${index + 1}/${withCatalogId.size}: ${img.objectId}")
                     val fullUrl = "${Config.CLOUDINARY_BASE}/w_1080,q_auto,f_jpg/${img.cloudinaryId}"
                     val thumbUrl = "${Config.CLOUDINARY_BASE}/w_400,q_auto,f_jpg/${img.cloudinaryId}"
 
-                    val fullFilename = "${img.catalogId}_full.jpg"
+                    val fullFilename = "${img.objectId}_full.jpg"
                     imageStorage.write(fullFilename, client.get(fullUrl).bodyAsBytes())
                     val fullPath = "${imageStorage.getDir()}/$fullFilename"
 
-                    val thumbFilename = "${img.catalogId}_thumb.jpg"
+                    val thumbFilename = "${img.objectId}_thumb.jpg"
                     imageStorage.write(thumbFilename, client.get(thumbUrl).bodyAsBytes())
                     val thumbPath = "${imageStorage.getDir()}/$thumbFilename"
 
-                    imageQueries.updatePaths(fullPath, thumbPath, img.catalogId!!)
+                    imageQueries.updatePaths(fullPath, thumbPath, img.objectId!!)
                 } catch (e: Exception) {
-                    onStatus("Failed: ${img.catalogId} — ${e.message}")
+                    onStatus("Failed: ${img.objectId} — ${e.message}")
                 }
             }
             onStatus("Images updated successfully (${withCatalogId.size} objects)")
