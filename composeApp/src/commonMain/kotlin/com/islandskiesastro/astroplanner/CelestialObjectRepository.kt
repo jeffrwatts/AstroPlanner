@@ -45,6 +45,7 @@ data class DsoResponse(
 
 @Serializable
 data class ImageResponse(
+    val objectId: String? = null,
     val catalogId: String? = null,
     val cloudinaryId: String
 )
@@ -235,10 +236,10 @@ class CelestialObjectRepository(
             // deduplicate so only the first image per object is used
             val seenIds = mutableSetOf<String>()
             val withCatalogId = imageList
-                .filter { it.catalogId != null }
                 .mapNotNull { img ->
-                    val objectId = img.catalogId!!.lowercase().replace(" ", "")
-                    if (seenIds.add(objectId)) img.copy(catalogId = objectId) else null
+                    val rawId = img.catalogId ?: img.objectId ?: return@mapNotNull null
+                    val normalizedId = rawId.lowercase().replace(" ", "")
+                    if (seenIds.add(normalizedId)) img.copy(catalogId = normalizedId) else null
                 }
             onStatus("Downloading ${withCatalogId.size} images...")
 
