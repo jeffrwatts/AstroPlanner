@@ -4,6 +4,12 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import kotlin.math.abs
 
+private fun fmtSec(s: Double): String {
+    val w = s.toInt()
+    val f = ((s - w) * 100 + 0.5).toInt().coerceIn(0, 99)
+    return "${w.toString().padStart(2, '0')}.${f.toString().padStart(2, '0')}"
+}
+
 // Degrees → HH:MM:SS.ss
 internal fun Double.toRaString(): String {
     val hours = this / 15.0
@@ -11,7 +17,7 @@ internal fun Double.toRaString(): String {
     val rem1 = (hours - h) * 60.0
     val m = rem1.toInt()
     val s = (rem1 - m) * 60.0
-    return "%02d:%02d:%05.2f".format(h, m, s)
+    return "${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${fmtSec(s)}"
 }
 
 // Absolute degrees → DD:MM:SS.ss (no sign prefix)
@@ -21,7 +27,7 @@ internal fun Double.toDecBodyString(): String {
     val rem1 = (a - d) * 60.0
     val m = rem1.toInt()
     val s = (rem1 - m) * 60.0
-    return "%02d:%02d:%05.2f".format(d, m, s)
+    return "${d.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${fmtSec(s)}"
 }
 
 // HH:MM:SS[.ss] → degrees, null if invalid

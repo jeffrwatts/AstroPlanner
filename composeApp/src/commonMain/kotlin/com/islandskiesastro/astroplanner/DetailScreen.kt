@@ -63,6 +63,7 @@ internal fun DetailScreen(
     var draftPlan          by remember { mutableStateOf<ObservingPlan?>(null) }
     var showDeleteConfirm  by remember { mutableStateOf(false) }
     var showEdit           by remember { mutableStateOf(false) }
+    val hasApiKey          = remember { planRepository?.getApiKey()?.isNotBlank() == true }
 
     LaunchedEffect(showFov, showPlanCreation, draftPlan, showEdit) {
         when {
@@ -183,7 +184,7 @@ internal fun DetailScreen(
                 OutlinedButton(onClick = { showFov = true }) {
                     Text("Field Of View")
                 }
-                if (planRepository != null) {
+                if (planRepository != null && hasApiKey) {
                     OutlinedButton(onClick = { showPlanCreation = true }) {
                         Text("Plan")
                     }

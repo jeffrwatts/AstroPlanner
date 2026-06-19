@@ -67,6 +67,9 @@ class CelestialObjectRepository(
         "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune"
     )
 
+    fun isSystemCatalogEmpty(): Boolean =
+        queries.selectAll().executeAsList().none { it.userAdded == 0L }
+
     fun getAllObjects(): List<CelestialObject> =
         queries.selectAll().executeAsList().map { it.toDomain() }
 
