@@ -1,5 +1,6 @@
 rootProject.name = "AstroPlanner"
 include(":composeApp")
+include(":landmarkid")
 
 pluginManagement {
     plugins {
