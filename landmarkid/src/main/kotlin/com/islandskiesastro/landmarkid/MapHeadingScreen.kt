@@ -63,7 +63,7 @@ fun MapHeadingScreen(location: LocationData?, heading: Double, modifier: Modifie
     GoogleMap(
         modifier = modifier.fillMaxSize(),
         cameraPositionState = cameraPositionState,
-        properties = MapProperties(mapType = MapType.SATELLITE),
+        properties = MapProperties(mapType = MapType.HYBRID),
         uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false)
     ) {
         Marker(state = rememberMarkerState(position = here), title = "You")
