@@ -1,6 +1,6 @@
 package com.islandskiesastro.astroplanner
 
-enum class ObjectType { STAR, GALAXY, NEBULA, CLUSTER, PLANET, UNKNOWN }
+enum class ObjectType { STAR, GALAXY, NEBULA, CLUSTER, PLANET, VARIABLE_STAR, UNKNOWN }
 
 data class CelestialObject(
     val id: Long,
@@ -15,5 +15,8 @@ data class CelestialObject(
     val magnitude: Double?,
     val angularSizeMajor: Double?,
     val angularSizeMinor: Double?,
-    val userAdded: Boolean = false
+    val userAdded: Boolean = false,
+    val variablePeriodDays: Double? = null,
+    val variableEpochJd: Double? = null,
+    val variableEpochType: String? = null
 )

@@ -1,0 +1,3 @@
+ALTER TABLE celestialObject ADD COLUMN variablePeriodDays REAL;
+ALTER TABLE celestialObject ADD COLUMN variableEpochJd REAL;
+ALTER TABLE celestialObject ADD COLUMN variableEpochType TEXT;

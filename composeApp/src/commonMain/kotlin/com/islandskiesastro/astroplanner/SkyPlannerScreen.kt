@@ -72,6 +72,8 @@ private data class MoonInfo(
     val isWaxing: Boolean
 )
 
+private enum class ObjectFilter { RECOMMENDED, ALL, VARIABLES }
+
 internal data class SkyObject(
     val obj: CelestialObject,
     val altitude: Double,
@@ -93,7 +95,7 @@ fun SkyPlannerScreen(
     onTitleChanged: (String?) -> Unit = {},
     timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
-    var showRecommendedOnly by remember { mutableStateOf(true) }
+    var objectFilter by remember { mutableStateOf(ObjectFilter.RECOMMENDED) }
     var searchQuery by remember { mutableStateOf("") }
     var skyObjects by remember { mutableStateOf<List<SkyObject>>(emptyList()) }
     var imagesMap by remember { mutableStateOf<Map<String, CelestialObjectImage>>(emptyMap()) }
@@ -161,8 +163,11 @@ fun SkyPlannerScreen(
     }
 
     fun loadObjects() {
-        val objects = if (showRecommendedOnly) repository.getRecommendedObjects()
-                      else repository.getAllObjects()
+        val objects = when (objectFilter) {
+            ObjectFilter.RECOMMENDED -> repository.getRecommendedObjects()
+            ObjectFilter.ALL         -> repository.getAllObjects()
+            ObjectFilter.VARIABLES   -> repository.getAllObjects().filter { it.type == ObjectType.VARIABLE_STAR }
+        }
         val lat = location?.latitude ?: 0.0
         val lon = location?.longitude ?: 0.0
         val d = observingD ?: AstronomyService.daysFromJ2000()
@@ -182,9 +187,21 @@ fun SkyPlannerScreen(
         imagesMap = repository.getImagesMap()
     }
 
-    LaunchedEffect(showRecommendedOnly, observingD) { loadObjects() }
+    LaunchedEffect(objectFilter, observingD) { loadObjects() }
 
     if (selectedObject != null) {
+        if (selectedObject!!.first.obj.type == ObjectType.VARIABLE_STAR) {
+            VariableStarDetailScreen(
+                skyObj              = selectedObject!!.first,
+                location            = location,
+                observingD          = currentD,
+                equipmentRepository = equipmentRepository,
+                onBack              = { selectedObject = null },
+                onBackActionChanged = onBackActionChanged,
+                timeZone            = timeZone
+            )
+            return
+        }
         DetailScreen(
             skyObj                    = selectedObject!!.first,
             image                     = selectedObject!!.second,
@@ -362,14 +379,19 @@ fun SkyPlannerScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
-                selected = showRecommendedOnly,
-                onClick  = { showRecommendedOnly = true },
+                selected = objectFilter == ObjectFilter.RECOMMENDED,
+                onClick  = { objectFilter = ObjectFilter.RECOMMENDED },
                 label    = { Text("Recommended") }
             )
             FilterChip(
-                selected = !showRecommendedOnly,
-                onClick  = { showRecommendedOnly = false },
+                selected = objectFilter == ObjectFilter.ALL,
+                onClick  = { objectFilter = ObjectFilter.ALL },
                 label    = { Text("All") }
+            )
+            FilterChip(
+                selected = objectFilter == ObjectFilter.VARIABLES,
+                onClick  = { objectFilter = ObjectFilter.VARIABLES },
+                label    = { Text("Variables") }
             )
         }
 

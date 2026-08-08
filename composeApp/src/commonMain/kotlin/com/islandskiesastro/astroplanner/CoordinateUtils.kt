@@ -30,9 +30,15 @@ internal fun Double.toDecBodyString(): String {
     return "${d.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${fmtSec(s)}"
 }
 
-// HH:MM:SS[.ss] → degrees, null if invalid
+// HH:MM:SS[.ss] → degrees, null if invalid. A plain decimal value (no ':') is
+// interpreted as decimal degrees directly, matching the format the database stores.
 internal fun parseRa(input: String): Double? {
-    val parts = input.trim().split(":")
+    val trimmed = input.trim()
+    val parts = trimmed.split(":")
+    if (parts.size == 1) {
+        val deg = trimmed.toDoubleOrNull() ?: return null
+        return if (deg in 0.0..360.0) deg else null
+    }
     if (parts.size != 3) return null
     val h = parts[0].toDoubleOrNull() ?: return null
     val m = parts[1].toDoubleOrNull() ?: return null
@@ -41,9 +47,15 @@ internal fun parseRa(input: String): Double? {
     return (h + m / 60.0 + s / 3600.0) * 15.0
 }
 
-// DD:MM:SS[.ss] (no sign) → absolute degrees, null if invalid
+// DD:MM:SS[.ss] (no sign) → absolute degrees, null if invalid. A plain decimal value
+// (no ':') is interpreted as decimal degrees directly, matching the format the database stores.
 internal fun parseDecBody(input: String): Double? {
-    val parts = input.trim().split(":")
+    val trimmed = input.trim()
+    val parts = trimmed.split(":")
+    if (parts.size == 1) {
+        val deg = trimmed.toDoubleOrNull() ?: return null
+        return if (deg in 0.0..90.0) deg else null
+    }
     if (parts.size != 3) return null
     val d = parts[0].toDoubleOrNull() ?: return null
     val m = parts[1].toDoubleOrNull() ?: return null

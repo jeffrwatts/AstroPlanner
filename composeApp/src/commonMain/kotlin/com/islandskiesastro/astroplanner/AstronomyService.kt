@@ -67,6 +67,31 @@ object AstronomyService {
      */
     internal fun daysFromJ2000(): Double = currentJd() - 2_451_545.0
 
+    /**
+     * Predicts variable-star min/max event times (as J2000 epoch offsets, matching [d])
+     * within [windowStartD, windowEndD], given a repeating period and a reference epoch
+     * (Julian Date, as published by AAVSO/VSX).
+     */
+    internal fun predictVariableEventsForD(
+        periodDays: Double,
+        epochJd: Double,
+        windowStartD: Double,
+        windowEndD: Double
+    ): List<Double> {
+        if (periodDays <= 0.0) return emptyList()
+        val epochD = epochJd - 2_451_545.0
+        val firstN = kotlin.math.floor((windowStartD - epochD) / periodDays).toLong()
+        val events = mutableListOf<Double>()
+        var n = firstN
+        while (true) {
+            val t = epochD + n * periodDays
+            if (t > windowEndD) break
+            if (t >= windowStartD) events.add(t)
+            n++
+        }
+        return events
+    }
+
     // ── GMST ──────────────────────────────────────────────────────────────────
 
     /**
@@ -834,18 +859,24 @@ object AstronomyService {
 
     /**
      * Identical to [getAstronomicalTwilightTimes] but uses the provided J2000 epoch
-     * offset [referenceD] as the centre of the 36-hour search window instead of now.
+     * offset [referenceD] as the reference point instead of now.
+     *
+     * If [referenceD] falls during the night (sun already below −18°), the enclosing
+     * night's boundaries are returned (searching both backward and forward). If it
+     * falls during the day, the *next* night's boundaries are returned — searching
+     * only forward avoids re-returning the night that just ended.
      */
     fun getAstronomicalTwilightTimesForD(lat: Double, lon: Double, referenceD: Double): Pair<Double, Double>? {
-        val d0     = referenceD
         val stepD  = 10.0 / (24.0 * 60.0)   // 10 minutes in days
-        val startD = d0 - 0.75
-        val endD   = d0 + 0.75
 
         fun sunAlt(d: Double): Double {
             val (ra, dec) = getSunRaDecForD(d)
             return getAltAzmForD(ra, dec, lat, lon, d).altitude
         }
+
+        val currentlyNight = sunAlt(referenceD) < -18.0
+        val startD = if (currentlyNight) referenceD - 0.75 else referenceD
+        val endD   = startD + 1.5
 
         var tEve: Double? = null
         var tMorn: Double? = null
@@ -916,6 +947,24 @@ object AstronomyService {
         val ampm  = if (h < 12) "am" else "pm"
         val h12   = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
         return "${h12}:${ldt.minute.toString().padStart(2, '0')} $ampm"
+    }
+
+    /**
+     * Format a J2000 epoch offset [d] as a VSX-style date/time string, e.g. `"08 Aug 2026 05:16"`,
+     * for easy cross-checking against the AAVSO VSX tool's predicted event times.
+     *
+     * @param d Days from J2000.0.
+     * @return Date/time string in 24-hour format, in the given timezone.
+     */
+    internal fun dToVsxDateTimeString(d: Double, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
+        val ms  = ((d + 10957.5) * 86_400_000.0).toLong()
+        val ldt = Instant.fromEpochMilliseconds(ms).toLocalDateTime(timeZone)
+        val months = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        val day   = ldt.dayOfMonth.toString().padStart(2, '0')
+        val month = months[ldt.monthNumber - 1]
+        val hh    = ldt.hour.toString().padStart(2, '0')
+        val mm    = ldt.minute.toString().padStart(2, '0')
+        return "$day $month ${ldt.year} $hh:$mm"
     }
 
     /**

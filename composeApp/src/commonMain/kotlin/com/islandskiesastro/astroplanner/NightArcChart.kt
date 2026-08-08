@@ -28,13 +28,15 @@ private data class NightChartData(
     val twilightStartD: Double,
     val objectPoints: List<Offset>,   // x = time fraction [0,1], y = alt fraction (0=top=+90°)
     val moonPoints: List<Offset>,
-    val hourMarkers: List<Pair<Float, String>>  // x fraction, label e.g. "10pm"
+    val hourMarkers: List<Pair<Float, String>>,  // x fraction, label e.g. "10pm"
+    val markerXFracs: List<Float>
 )
 
 // Distinct hardcoded arc colors that read well on the dark (#0A0A1A) background
 // regardless of the app's Material theme.
 private val ArcColorObject = Color(0xFFFFA040)   // warm amber  — the object you're observing
 private val ArcColorMoon   = Color(0xFF90B8E0)   // cool steel-blue — the Moon
+private val ArcColorMarker = Color(0xFFFF4081)   // magenta accent — predicted min/max events
 
 @Composable
 internal fun NightArcChart(
@@ -42,7 +44,10 @@ internal fun NightArcChart(
     location: LocationData,
     observingD: Double,
     modifier: Modifier = Modifier,
-    timeZone: TimeZone = TimeZone.currentSystemDefault()
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    windowStartD: Double? = null,
+    windowEndD: Double? = null,
+    markerTimesD: List<Double> = emptyList()
 ) {
     val twilightTimes = remember(location.latitude, location.longitude, observingD) {
         AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, observingD)
@@ -58,8 +63,11 @@ internal fun NightArcChart(
         return
     }
 
-    val chartData = remember(skyObj.obj.objectId, location.latitude, location.longitude, observingD, timeZone) {
-        computeNightChartData(skyObj, location, twilightTimes.first, twilightTimes.second, timeZone)
+    val chartStartD = windowStartD ?: twilightTimes.first
+    val chartEndD   = windowEndD ?: twilightTimes.second
+
+    val chartData = remember(skyObj.obj.objectId, location.latitude, location.longitude, observingD, timeZone, chartStartD, chartEndD, markerTimesD) {
+        computeNightChartData(skyObj, location, chartStartD, chartEndD, timeZone, markerTimesD)
     }
 
     val gridColor  = Color.White.copy(alpha = 0.25f)
@@ -167,6 +175,17 @@ internal fun NightArcChart(
             }
             drawPath(path, ArcColorObject, style = Stroke(width = strokeObject))
         }
+
+        // Predicted event markers (e.g. variable-star min/max times)
+        chartData.markerXFracs.forEach { xFrac ->
+            val x = xPx(xFrac)
+            drawLine(
+                color       = ArcColorMarker,
+                start       = Offset(x, chartTop),
+                end         = Offset(x, chartBottom),
+                strokeWidth = strokeHeavy
+            )
+        }
     }
 }
 
@@ -175,7 +194,8 @@ private fun computeNightChartData(
     location: LocationData,
     twilightEndD: Double,
     twilightStartD: Double,
-    timeZone: TimeZone = TimeZone.currentSystemDefault()
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    markerTimesD: List<Double> = emptyList()
 ): NightChartData {
     val lat = location.latitude
     val lon = location.longitude
@@ -230,7 +250,11 @@ private fun computeNightChartData(
         scanMs += 60_000L
     }
 
-    return NightChartData(twilightEndD, twilightStartD, objectPoints, moonPoints, hourMarkers)
+    val markerXFracs = markerTimesD
+        .map { ((it - twilightEndD) / nightDuration).toFloat() }
+        .filter { it in 0f..1f }
+
+    return NightChartData(twilightEndD, twilightStartD, objectPoints, moonPoints, hourMarkers, markerXFracs)
 }
 
 /** Convert days-from-J2000 to Unix epoch milliseconds. */

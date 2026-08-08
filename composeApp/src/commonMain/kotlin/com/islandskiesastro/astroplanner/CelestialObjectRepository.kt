@@ -44,6 +44,20 @@ data class DsoResponse(
 )
 
 @Serializable
+data class VsResponse(
+    val displayName: String,
+    val objectId: String,
+    val ra: Double,
+    val dec: Double,
+    val subType: String,
+    val constellation: String? = null,
+    val magnitude: Double? = null,
+    val variablePeriodDays: Double,
+    val variableEpochJd: Double,
+    val variableEpochType: String
+)
+
+@Serializable
 data class ImageResponse(
     val objectId: String? = null,
     val cloudinaryId: String
@@ -143,7 +157,12 @@ class CelestialObjectRepository(
         ra: Double,
         dec: Double,
         type: ObjectType,
-        magnitude: Double?
+        magnitude: Double?,
+        subType: String? = null,
+        constellation: String? = null,
+        variablePeriodDays: Double? = null,
+        variableEpochJd: Double? = null,
+        variableEpochType: String? = null
     ) {
         queries.insertUserObject(
             displayName      = displayName,
@@ -151,11 +170,14 @@ class CelestialObjectRepository(
             ra               = ra,
             dec              = dec,
             type             = type.name,
-            subType          = null,
-            constellation    = null,
+            subType          = subType,
+            constellation    = constellation,
             magnitude        = magnitude,
             angularSizeMajor = null,
-            angularSizeMinor = null
+            angularSizeMinor = null,
+            variablePeriodDays = variablePeriodDays,
+            variableEpochJd    = variableEpochJd,
+            variableEpochType  = variableEpochType
         )
     }
 
@@ -169,7 +191,12 @@ class CelestialObjectRepository(
         ra: Double,
         dec: Double,
         type: ObjectType,
-        magnitude: Double?
+        magnitude: Double?,
+        subType: String? = null,
+        constellation: String? = null,
+        variablePeriodDays: Double? = null,
+        variableEpochJd: Double? = null,
+        variableEpochType: String? = null
     ) {
         queries.updateUserObject(
             displayName = displayName,
@@ -177,6 +204,11 @@ class CelestialObjectRepository(
             dec         = dec,
             type        = type.name,
             magnitude   = magnitude,
+            subType     = subType,
+            constellation = constellation,
+            variablePeriodDays = variablePeriodDays,
+            variableEpochJd    = variableEpochJd,
+            variableEpochType  = variableEpochType,
             id          = id
         )
     }
@@ -196,7 +228,10 @@ class CelestialObjectRepository(
                 recommended = 1L,
                 magnitude = null,
                 angularSizeMajor = null,
-                angularSizeMinor = null
+                angularSizeMinor = null,
+                variablePeriodDays = null,
+                variableEpochJd = null,
+                variableEpochType = null
             )
         }
 
@@ -217,11 +252,44 @@ class CelestialObjectRepository(
                     recommended = if (dso.recommended) 1L else 0L,
                     magnitude = dso.magnitude,
                     angularSizeMajor = dso.angularSizeMajor,
-                    angularSizeMinor = dso.angularSizeMinor
+                    angularSizeMinor = dso.angularSizeMinor,
+                    variablePeriodDays = null,
+                    variableEpochJd = null,
+                    variableEpochType = null
                 )
             }
         } catch (e: Exception) {
             onStatus("DSO data loading failed: ${e.message}")
+        }
+    }
+
+    suspend fun updateVariableStars(onStatus: (String) -> Unit) {
+        onStatus("Fetching variable star data...")
+        try {
+            queries.deleteSystemVariableStars()
+            val responseText = client.get("${Config.VS_URL}?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}").bodyAsText()
+            val vsList: List<VsResponse> = json.decodeFromString(responseText)
+            onStatus("Variable star data loaded — ${vsList.size} objects")
+            vsList.forEach { vs ->
+                queries.insert(
+                    displayName = vs.displayName,
+                    objectId = vs.objectId,
+                    ra = vs.ra * 15.0,  // endpoint returns RA in hours; DB stores degrees
+                    dec = vs.dec,
+                    type = ObjectType.VARIABLE_STAR.name,
+                    subType = vs.subType,
+                    constellation = vs.constellation,
+                    recommended = 0L,
+                    magnitude = vs.magnitude,
+                    angularSizeMajor = null,
+                    angularSizeMinor = null,
+                    variablePeriodDays = vs.variablePeriodDays,
+                    variableEpochJd = vs.variableEpochJd,
+                    variableEpochType = vs.variableEpochType
+                )
+            }
+        } catch (e: Exception) {
+            onStatus("Variable star data loading failed: ${e.message}")
         }
     }
 
@@ -303,6 +371,9 @@ class CelestialObjectRepository(
         magnitude = magnitude,
         angularSizeMajor = angularSizeMajor,
         angularSizeMinor = angularSizeMinor,
-        userAdded = userAdded != 0L
+        userAdded = userAdded != 0L,
+        variablePeriodDays = variablePeriodDays,
+        variableEpochJd = variableEpochJd,
+        variableEpochType = variableEpochType
     )
 }

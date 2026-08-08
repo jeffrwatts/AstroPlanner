@@ -11,7 +11,10 @@ CREATE TABLE celestialObject (
     magnitude       REAL,
     angularSizeMajor REAL,
     angularSizeMinor REAL,
-    userAdded       INTEGER NOT NULL DEFAULT 0
+    userAdded       INTEGER NOT NULL DEFAULT 0,
+    variablePeriodDays REAL,
+    variableEpochJd REAL,
+    variableEpochType TEXT
 );
 
 selectAll:
@@ -24,12 +27,12 @@ selectByObjectId:
 SELECT * FROM celestialObject WHERE objectId = ?;
 
 insert:
-INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor, variablePeriodDays, variableEpochJd, variableEpochType)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertUserObject:
-INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor, userAdded)
-VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1);
+INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor, userAdded, variablePeriodDays, variableEpochJd, variableEpochType)
+VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1, ?, ?, ?);
 
 deleteAll:
 DELETE FROM celestialObject;
@@ -37,10 +40,13 @@ DELETE FROM celestialObject;
 deleteSystemObjects:
 DELETE FROM celestialObject WHERE userAdded = 0;
 
+deleteSystemVariableStars:
+DELETE FROM celestialObject WHERE userAdded = 0 AND type = 'VARIABLE_STAR';
+
 deleteById:
 DELETE FROM celestialObject WHERE id = ?;
 
 updateUserObject:
 UPDATE celestialObject
-SET displayName = ?, ra = ?, dec = ?, type = ?, magnitude = ?
+SET displayName = ?, ra = ?, dec = ?, type = ?, magnitude = ?, subType = ?, constellation = ?, variablePeriodDays = ?, variableEpochJd = ?, variableEpochType = ?
 WHERE id = ? AND userAdded = 1;

@@ -18,6 +18,7 @@ internal fun defaultImagePainter(type: ObjectType): Painter = painterResource(
         ObjectType.NEBULA  -> Res.drawable.ic_default_nebula
         ObjectType.CLUSTER -> Res.drawable.ic_default_cluster
         ObjectType.PLANET  -> Res.drawable.ic_default_planet
+        ObjectType.VARIABLE_STAR -> Res.drawable.ic_default_star
         ObjectType.UNKNOWN -> Res.drawable.ic_default_star
     }
 )

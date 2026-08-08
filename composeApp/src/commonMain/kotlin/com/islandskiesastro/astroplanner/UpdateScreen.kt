@@ -34,6 +34,10 @@ fun UpdateScreen(
     var dsoStatus by remember { mutableStateOf("") }
     var dsoError by remember { mutableStateOf(false) }
 
+    var vsRunning by remember { mutableStateOf(false) }
+    var vsStatus by remember { mutableStateOf("") }
+    var vsError by remember { mutableStateOf(false) }
+
     var imgRunning by remember { mutableStateOf(false) }
     var imgStatus by remember { mutableStateOf("") }
     var imgError by remember { mutableStateOf(false) }
@@ -92,6 +96,35 @@ fun UpdateScreen(
                 text = "DSO: $dsoStatus",
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (dsoError) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                vsRunning = true
+                vsError = false
+                scope.launch {
+                    repository.updateVariableStars { status ->
+                        vsStatus = status
+                        vsError = status.startsWith("Variable star data loading failed")
+                    }
+                    vsRunning = false
+                }
+            },
+            enabled = !vsRunning
+        ) {
+            Text("Update Variable Stars")
+        }
+
+        if (vsStatus.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Variable Stars: $vsStatus",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (vsError) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurface
             )
         }

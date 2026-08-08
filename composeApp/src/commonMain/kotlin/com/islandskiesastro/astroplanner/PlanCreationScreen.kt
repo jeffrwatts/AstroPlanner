@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.atan
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -447,23 +446,6 @@ private fun isCameraColor(cameraName: String): Boolean {
     val lower = cameraName.lowercase()
     return lower.contains(" mc") || lower.contains("-mc") || lower.contains("mc ") ||
            lower.contains("color") || lower.contains("colour") || lower.contains("osc")
-}
-
-private fun Double.formatRa(): String {
-    val hours = this / 15.0
-    val h = hours.toInt()
-    val m = ((hours - h) * 60).toInt()
-    val s = ((hours - h - m / 60.0) * 3600).toInt()
-    return "${h}h ${m}m ${s}s"
-}
-
-private fun Double.formatDec(): String {
-    val sign = if (this < 0) "-" else "+"
-    val a = abs(this)
-    val d = a.toInt()
-    val m = ((a - d) * 60).toInt()
-    val s = ((a - d - m / 60.0) * 3600).toInt()
-    return "$sign${d}° ${m}' ${s}\""
 }
 
 // Format to 1 decimal place without String.format (KMP-safe)

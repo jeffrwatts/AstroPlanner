@@ -321,7 +321,7 @@ internal fun DetailScreen(
     }
 }
 
-private fun Double.formatRa(): String {
+internal fun Double.formatRa(): String {
     val hours = this / 15.0
     val h = hours.toInt()
     val m = ((hours - h) * 60).toInt()
@@ -329,7 +329,7 @@ private fun Double.formatRa(): String {
     return "${h}h ${m}m ${s.toInt()}s"
 }
 
-private fun Double.formatDec(): String {
+internal fun Double.formatDec(): String {
     val sign = if (this < 0) "-" else "+"
     val a = abs(this)
     val d = a.toInt()

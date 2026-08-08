@@ -18,6 +18,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ private val selectableTypes = listOf(
     ObjectType.NEBULA,
     ObjectType.CLUSTER,
     ObjectType.STAR,
+    ObjectType.VARIABLE_STAR,
     ObjectType.UNKNOWN
 )
 
@@ -66,6 +68,11 @@ fun AddObjectScreen(
     var magnitudeInput by remember { mutableStateOf("") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf("") }
+
+    var variableTypeInput by remember { mutableStateOf("") }
+    var periodInput by remember { mutableStateOf("") }
+    var epochInput by remember { mutableStateOf("") }
+    var epochIsMax by remember { mutableStateOf(true) }
 
     var showFovPicker by remember { mutableStateOf(false) }
 
@@ -283,6 +290,64 @@ fun AddObjectScreen(
             singleLine = true
         )
 
+        if (selectedType == ObjectType.VARIABLE_STAR) {
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = variableTypeInput,
+                onValueChange = { variableTypeInput = it; saveError = "" },
+                label = { Text("Variable Type") },
+                placeholder = { Text("e.g. SXPHE, EA, Mira") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = fieldsEnabled,
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = periodInput,
+                onValueChange = { periodInput = it; saveError = "" },
+                label = { Text("Period (days)") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = fieldsEnabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = epochInput,
+                onValueChange = { epochInput = it; saveError = "" },
+                label = { Text("Epoch (Julian Date)") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = fieldsEnabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(8.dp))
+            Text("Epoch marks", style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = epochIsMax,
+                    onClick = { epochIsMax = true },
+                    label = { Text("Maximum") },
+                    enabled = fieldsEnabled
+                )
+                FilterChip(
+                    selected = !epochIsMax,
+                    onClick = { epochIsMax = false },
+                    label = { Text("Minimum") },
+                    enabled = fieldsEnabled
+                )
+            }
+        }
+
         if (saveError.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text(saveError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -301,12 +366,18 @@ fun AddObjectScreen(
                     val decAbs = parseDecBody(decInput.text)
                     val dec    = decAbs?.let { if (decPositive) it else -it }
                     val mag    = if (magnitudeInput.isBlank()) null else magnitudeInput.toDoubleOrNull()
+                    val isVariable = selectedType == ObjectType.VARIABLE_STAR
+                    val period = periodInput.toDoubleOrNull()
+                    val epoch  = epochInput.toDoubleOrNull()
                     when {
                         objectIdInput.isBlank()                    -> saveError = "Object ID is required"
                         displayName.isBlank()                      -> saveError = "Display name is required"
                         ra == null                                 -> saveError = "RA must be HH:MM:SS (e.g. 20:12:07)"
                         dec == null                                -> saveError = "Dec must be DD:MM:SS (e.g. 38:21:09)"
                         magnitudeInput.isNotBlank() && mag == null -> saveError = "Magnitude must be a valid number"
+                        isVariable && variableTypeInput.isBlank()  -> saveError = "Variable type is required"
+                        isVariable && period == null                -> saveError = "Period must be a valid number of days"
+                        isVariable && epoch == null                 -> saveError = "Epoch must be a valid Julian Date"
                         else -> {
                             repository.addUserObject(
                                 displayName = displayName.trim(),
@@ -314,7 +385,11 @@ fun AddObjectScreen(
                                 ra          = ra,
                                 dec         = dec,
                                 type        = selectedType,
-                                magnitude   = mag
+                                magnitude   = mag,
+                                subType     = if (isVariable) variableTypeInput.trim() else null,
+                                variablePeriodDays = if (isVariable) period else null,
+                                variableEpochJd    = if (isVariable) epoch else null,
+                                variableEpochType  = if (isVariable) (if (epochIsMax) "MAX" else "MIN") else null
                             )
                             onSaved()
                         }
