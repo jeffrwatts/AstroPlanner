@@ -1,0 +1,19 @@
+CREATE TABLE comparisonStar (
+    id                   INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    variableStarObjectId TEXT    NOT NULL,
+    auid                 TEXT    NOT NULL,
+    ra                   REAL    NOT NULL,
+    dec                  REAL    NOT NULL,
+    label                TEXT    NOT NULL,
+    mag                  REAL
+);
+
+selectByObjectId:
+SELECT * FROM comparisonStar WHERE variableStarObjectId = ?;
+
+deleteByObjectId:
+DELETE FROM comparisonStar WHERE variableStarObjectId = ?;
+
+insert:
+INSERT INTO comparisonStar(variableStarObjectId, auid, ra, dec, label, mag)
+VALUES (?, ?, ?, ?, ?, ?);

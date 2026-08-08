@@ -8,13 +8,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,19 +37,31 @@ internal fun VariableStarDetailScreen(
     location: LocationData?,
     observingD: Double,
     equipmentRepository: EquipmentRepository,
+    celestialObjectRepository: CelestialObjectRepository,
     onBack: () -> Unit = {},
     onBackActionChanged: ((() -> Unit)?) -> Unit = {},
     timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
     var showFov by remember { mutableStateOf(false) }
+    var showCompStars by remember { mutableStateOf(false) }
     var isLocal by remember { mutableStateOf(true) }
+    var comparisonStars by remember { mutableStateOf<List<ComparisonStar>>(emptyList()) }
+
+    LaunchedEffect(skyObj.obj.objectId) {
+        comparisonStars = celestialObjectRepository.getComparisonStars(skyObj.obj.objectId)
+    }
 
     LaunchedEffect(showFov) {
         onBackActionChanged(if (showFov) ({ showFov = false }) else onBack)
     }
 
     if (showFov) {
-        FieldOfViewScreen(skyObj = skyObj, equipmentRepository = equipmentRepository, onBack = { showFov = false })
+        FieldOfViewScreen(
+            skyObj = skyObj,
+            equipmentRepository = equipmentRepository,
+            comparisonStars = comparisonStars,
+            onBack = { showFov = false }
+        )
         return
     }
 
@@ -80,6 +96,9 @@ internal fun VariableStarDetailScreen(
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(2.dp))
+        obj.magnitude?.let { mag ->
+            Text("Magnitude: $mag", style = MaterialTheme.typography.bodyMedium)
+        }
         if (!obj.subType.isNullOrBlank()) {
             Text("Variable Type: ${obj.subType}", style = MaterialTheme.typography.bodyMedium)
         }
@@ -103,8 +122,46 @@ internal fun VariableStarDetailScreen(
         }
 
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = { showFov = true }) {
-            Text("Field Of View")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { showFov = true }) {
+                Text("Field Of View")
+            }
+            OutlinedButton(onClick = { showCompStars = true }) {
+                Text("Comparison Stars")
+            }
+        }
+
+        if (showCompStars) {
+            AlertDialog(
+                onDismissRequest = { showCompStars = false },
+                title = { Text("Comparison Stars") },
+                text = {
+                    if (comparisonStars.isEmpty()) {
+                        Text(
+                            "No comparison star data available for this target.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        LazyColumn(modifier = Modifier.height(300.dp)) {
+                            items(comparisonStars.sortedBy { it.label }) { comp ->
+                                Text(
+                                    "Label ${comp.label}   AUID: ${comp.auid}   ${comp.mag?.let { "Mag: $it" } ?: ""}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    "RA: ${comp.ra.formatRa()}   Dec: ${comp.dec.formatDec()}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(6.dp))
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showCompStars = false }) { Text("Close") }
+                }
+            )
         }
 
         Spacer(Modifier.height(12.dp))

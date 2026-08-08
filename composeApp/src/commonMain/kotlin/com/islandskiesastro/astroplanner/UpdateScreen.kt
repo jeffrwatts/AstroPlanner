@@ -42,6 +42,10 @@ fun UpdateScreen(
     var imgStatus by remember { mutableStateOf("") }
     var imgError by remember { mutableStateOf(false) }
 
+    var compStarsRunning by remember { mutableStateOf(false) }
+    var compStarsStatus by remember { mutableStateOf("") }
+    var compStarsError by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(showAddObject) {
@@ -125,6 +129,35 @@ fun UpdateScreen(
                 text = "Variable Stars: $vsStatus",
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (vsError) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                compStarsRunning = true
+                compStarsError = false
+                scope.launch {
+                    repository.updateAllComparisonStars { status ->
+                        compStarsStatus = status
+                        compStarsError = status.startsWith("Comparison stars update failed")
+                    }
+                    compStarsRunning = false
+                }
+            },
+            enabled = !compStarsRunning
+        ) {
+            Text("Fetch All Comparison Stars")
+        }
+
+        if (compStarsStatus.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Comparison Stars: $compStarsStatus",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (compStarsError) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurface
             )
         }

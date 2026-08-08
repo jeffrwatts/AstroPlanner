@@ -192,13 +192,14 @@ fun SkyPlannerScreen(
     if (selectedObject != null) {
         if (selectedObject!!.first.obj.type == ObjectType.VARIABLE_STAR) {
             VariableStarDetailScreen(
-                skyObj              = selectedObject!!.first,
-                location            = location,
-                observingD          = currentD,
-                equipmentRepository = equipmentRepository,
-                onBack              = { selectedObject = null },
-                onBackActionChanged = onBackActionChanged,
-                timeZone            = timeZone
+                skyObj                    = selectedObject!!.first,
+                location                  = location,
+                observingD                = currentD,
+                equipmentRepository       = equipmentRepository,
+                celestialObjectRepository = repository,
+                onBack                    = { selectedObject = null },
+                onBackActionChanged       = onBackActionChanged,
+                timeZone                  = timeZone
             )
             return
         }

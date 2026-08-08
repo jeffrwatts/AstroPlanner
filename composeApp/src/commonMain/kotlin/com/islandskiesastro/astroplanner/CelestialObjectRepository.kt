@@ -2,12 +2,15 @@ package com.islandskiesastro.astroplanner
 
 import com.islandskiesastro.astroplanner.database.AstroDatabase
 import com.islandskiesastro.astroplanner.database.CelestialObject as DbRow
+import com.islandskiesastro.astroplanner.database.ComparisonStar as DbCompStarRow
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -63,6 +66,15 @@ data class ImageResponse(
     val cloudinaryId: String
 )
 
+@Serializable
+data class CompStarResponse(
+    val auid: String,
+    val ra: Double,
+    val dec: Double,
+    val label: String,
+    val mag: Double? = null
+)
+
 class CelestialObjectRepository(
     driverFactory: DatabaseDriverFactory,
     private val imageStorage: ImageStorage
@@ -70,6 +82,7 @@ class CelestialObjectRepository(
     private val db = AstroDatabase(driverFactory.createDriver())
     private val queries = db.celestialObjectQueries
     private val imageQueries = db.celestialObjectImageQueries
+    private val compStarQueries = db.comparisonStarQueries
     private val json = Json { ignoreUnknownKeys = true }
     private val client = HttpClient {
         install(ContentNegotiation) {
@@ -291,6 +304,74 @@ class CelestialObjectRepository(
         } catch (e: Exception) {
             onStatus("Variable star data loading failed: ${e.message}")
         }
+    }
+
+    private fun DbCompStarRow.toDomain() = ComparisonStar(
+        id = id,
+        variableStarObjectId = variableStarObjectId,
+        auid = auid,
+        ra = ra,
+        dec = dec,
+        label = label,
+        mag = mag
+    )
+
+    // Comparison stars are fetched lazily, per variable star, on first request — there's
+    // one JSON file per objectId rather than a bulk feed, and a 404 just means the
+    // notebook side hasn't generated that target's cache yet (not an error).
+    suspend fun getComparisonStars(objectId: String): List<ComparisonStar> {
+        val cached = compStarQueries.selectByObjectId(objectId).executeAsList()
+        if (cached.isNotEmpty()) return cached.map { it.toDomain() }
+
+        return try {
+            val response: HttpResponse = client.get("${Config.COMP_STARS_BASE_URL}$objectId.json?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}")
+            if (response.status == HttpStatusCode.NotFound) return emptyList()
+            val compList: List<CompStarResponse> = json.decodeFromString(response.bodyAsText())
+            compStarQueries.deleteByObjectId(objectId)
+            compList.forEach { comp ->
+                compStarQueries.insert(
+                    variableStarObjectId = objectId,
+                    auid  = comp.auid,
+                    ra    = comp.ra * 15.0,  // endpoint returns RA in hours; DB stores degrees
+                    dec   = comp.dec,
+                    label = comp.label,
+                    mag   = comp.mag
+                )
+            }
+            compStarQueries.selectByObjectId(objectId).executeAsList().map { it.toDomain() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun updateAllComparisonStars(onStatus: (String) -> Unit) {
+        val variableStars = queries.selectAll().executeAsList()
+            .filter { it.type == ObjectType.VARIABLE_STAR.name }
+        onStatus("Fetching comparison stars for ${variableStars.size} variable stars...")
+        var fetched = 0
+        variableStars.forEachIndexed { index, star ->
+            onStatus("Fetching ${index + 1}/${variableStars.size}: ${star.objectId}")
+            compStarQueries.deleteByObjectId(star.objectId)
+            try {
+                val response: HttpResponse = client.get("${Config.COMP_STARS_BASE_URL}${star.objectId}.json?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}")
+                if (response.status == HttpStatusCode.NotFound) return@forEachIndexed
+                val compList: List<CompStarResponse> = json.decodeFromString(response.bodyAsText())
+                compList.forEach { comp ->
+                    compStarQueries.insert(
+                        variableStarObjectId = star.objectId,
+                        auid  = comp.auid,
+                        ra    = comp.ra * 15.0,
+                        dec   = comp.dec,
+                        label = comp.label,
+                        mag   = comp.mag
+                    )
+                }
+                fetched++
+            } catch (e: Exception) {
+                // 404/network errors are expected for targets without a generated cache yet
+            }
+        }
+        onStatus("Comparison stars updated — $fetched/${variableStars.size} targets")
     }
 
     suspend fun updateImages(onStatus: (String) -> Unit) {

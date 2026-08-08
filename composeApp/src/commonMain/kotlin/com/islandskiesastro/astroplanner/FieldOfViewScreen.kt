@@ -41,13 +41,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -55,9 +60,11 @@ import io.ktor.client.statement.readRawBytes
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.atan
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.math.roundToInt
 
 private fun computeFov(config: EquipmentConfig): Pair<Double, Double> {
@@ -81,6 +88,31 @@ private fun skyViewUrl(
     "?Position=$ra,$dec&Size=$sizeDeg&Pixels=1000&Rotation=$rotation" +
     "&Scaling=$scaling&Return=PNG&coordinates=J2000&Survey=DSS"
 
+// Pixel offset (from canvas center, pre-flip) at which a given sky position renders,
+// given the currently displayed image's center/size/rotation. Mirrors (inverts) the
+// pixel-offset -> RA/Dec math in fetchImage()/currentPointing() above.
+private fun skyToCanvasOffset(
+    targetRa: Double, targetDec: Double,
+    centerRa: Double, centerDec: Double,
+    imageSizeDeg: Double, rotationDeg: Float,
+    canvasWidth: Float, canvasHeight: Float
+): Offset {
+    val dxDeg = (centerRa - targetRa) * cos(centerDec * PI / 180.0)
+    val dyDeg = centerDec - targetDec
+    val dxSky = dxDeg * canvasWidth  / imageSizeDeg
+    val dySky = dyDeg * canvasHeight / imageSizeDeg
+    val rotRad = rotationDeg * PI / 180.0
+    val cosR = cos(rotRad)
+    val sinR = sin(rotRad)
+    // Inverse of forward rotation dxSky = x*cosR - y*sinR, dySky = x*sinR + y*cosR
+    val x = (dxSky * cosR + dySky * sinR).toFloat()
+    val y = (-dxSky * sinR + dySky * cosR).toFloat()
+    return Offset(x, y)
+}
+
+private val TargetMarkerColor = Color(0xFF40E0FF) // cyan — distinct from the red FOV rectangle
+private val CompStarMarkerColor = Color(0xFFFFD740) // yellow — distinct from the target marker
+
 private fun Double.fmt2(): String {
     val rounded = (this * 100).roundToInt().toDouble() / 100.0
     val str = rounded.toString()
@@ -97,6 +129,7 @@ internal fun FieldOfViewScreen(
     skyObj: SkyObject,
     equipmentRepository: EquipmentRepository,
     onBack: () -> Unit,
+    comparisonStars: List<ComparisonStar> = emptyList(),
     onPickCoordinates: ((ra: Double, dec: Double) -> Unit)? = null
 ) {
     val configs            = remember { equipmentRepository.getAll() }
@@ -125,6 +158,8 @@ internal fun FieldOfViewScreen(
 
     // Pixel size of the image Box for degree↔pixel conversion
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+
+    val textMeasurer = rememberTextMeasurer()
 
     val httpClient = remember { HttpClient() }
     DisposableEffect(Unit) { onDispose { httpClient.close() } }
@@ -258,6 +293,118 @@ internal fun FieldOfViewScreen(
                             size    = Size(rw, rh),
                             style   = Stroke(width = 2.dp.toPx())
                         )
+                    }
+
+                    // Mark the variable star's actual sky position. The image can be
+                    // panned/rotated/resized independently (via drag or "Update"), so this
+                    // is recomputed from displayedCenter*/displayedRotation every draw —
+                    // it never assumes the star is still centered.
+                    if (displayedImageSize > 0.0) {
+                        val markerOffset = skyToCanvasOffset(
+                            targetRa      = skyObj.obj.ra,
+                            targetDec     = skyObj.obj.dec,
+                            centerRa      = displayedCenterRa,
+                            centerDec     = displayedCenterDec,
+                            imageSizeDeg  = displayedImageSize,
+                            rotationDeg   = displayedRotation,
+                            canvasWidth   = size.width,
+                            canvasHeight  = size.height
+                        )
+                        val cx = size.width  / 2f + markerOffset.x
+                        val cy = size.height / 2f + markerOffset.y
+                        val labelStyle = TextStyle(fontSize = 12.sp, color = TargetMarkerColor)
+                        val label = skyObj.obj.displayName
+                        val measured = textMeasurer.measure(label, labelStyle)
+                        val onScreenMargin = 18.dp.toPx()
+
+                        if (cx >= -onScreenMargin && cx <= size.width + onScreenMargin &&
+                            cy >= -onScreenMargin && cy <= size.height + onScreenMargin
+                        ) {
+                            // Target is within (or just at the edge of) the frame — circle + label.
+                            val radius = 16.dp.toPx()
+                            drawCircle(
+                                color  = TargetMarkerColor,
+                                radius = radius,
+                                center = Offset(cx, cy),
+                                style  = Stroke(width = 2.dp.toPx())
+                            )
+                            val labelX = (cx - measured.size.width / 2f)
+                                .coerceIn(0f, (size.width - measured.size.width).coerceAtLeast(0f))
+                            val labelY = (cy + radius + 4.dp.toPx())
+                                .coerceIn(0f, (size.height - measured.size.height).coerceAtLeast(0f))
+                            drawText(textMeasurer = textMeasurer, text = label, topLeft = Offset(labelX, labelY), style = labelStyle)
+                        } else {
+                            // Panned out of frame — point an arrow at the frame edge toward it
+                            // instead of silently omitting the marker.
+                            val dx = cx - size.width / 2f
+                            val dy = cy - size.height / 2f
+                            val dist = sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+                            val edgeInset = 24.dp.toPx()
+                            val ex = (size.width  / 2f + dx / dist * (size.width  / 2f - edgeInset))
+                                .coerceIn(edgeInset, size.width  - edgeInset)
+                            val ey = (size.height / 2f + dy / dist * (size.height / 2f - edgeInset))
+                                .coerceIn(edgeInset, size.height - edgeInset)
+                            val angleDeg = (atan2(dy, dx) * 180.0 / PI).toFloat()
+                            withTransform({
+                                translate(left = ex, top = ey)
+                                rotate(degrees = angleDeg, pivot = Offset.Zero)
+                            }) {
+                                val arrow = Path().apply {
+                                    moveTo(10.dp.toPx(), 0f)
+                                    lineTo(-6.dp.toPx(), -6.dp.toPx())
+                                    lineTo(-6.dp.toPx(), 6.dp.toPx())
+                                    close()
+                                }
+                                drawPath(arrow, color = TargetMarkerColor)
+                            }
+                            val offscreenLabel = "$label (outside field)"
+                            val measuredOffscreen = textMeasurer.measure(offscreenLabel, labelStyle)
+                            val labelX = (ex - measuredOffscreen.size.width / 2f)
+                                .coerceIn(0f, (size.width - measuredOffscreen.size.width).coerceAtLeast(0f))
+                            val labelY = (ey + 12.dp.toPx())
+                                .coerceIn(0f, (size.height - measuredOffscreen.size.height).coerceAtLeast(0f))
+                            drawText(textMeasurer = textMeasurer, text = offscreenLabel, topLeft = Offset(labelX, labelY), style = labelStyle)
+                        }
+                    }
+
+                    // AAVSO comparison stars, labeled with their chart label. The cache
+                    // covers a 2° window — much wider than any real frame — so most are
+                    // expected to fall outside the current view; only draw the ones that
+                    // land inside it rather than cluttering the frame with off-screen arrows.
+                    if (displayedImageSize > 0.0 && comparisonStars.isNotEmpty()) {
+                        val compLabelStyle = TextStyle(fontSize = 10.sp, color = CompStarMarkerColor)
+                        val compRadius = 8.dp.toPx()
+                        val compMargin = 4.dp.toPx()
+                        comparisonStars.forEach { comp ->
+                            val offset = skyToCanvasOffset(
+                                targetRa      = comp.ra,
+                                targetDec     = comp.dec,
+                                centerRa      = displayedCenterRa,
+                                centerDec     = displayedCenterDec,
+                                imageSizeDeg  = displayedImageSize,
+                                rotationDeg   = displayedRotation,
+                                canvasWidth   = size.width,
+                                canvasHeight  = size.height
+                            )
+                            val cx = size.width  / 2f + offset.x
+                            val cy = size.height / 2f + offset.y
+                            if (cx >= compRadius - compMargin && cx <= size.width  - compRadius + compMargin &&
+                                cy >= compRadius - compMargin && cy <= size.height - compRadius + compMargin
+                            ) {
+                                drawCircle(
+                                    color  = CompStarMarkerColor,
+                                    radius = compRadius,
+                                    center = Offset(cx, cy),
+                                    style  = Stroke(width = 1.5.dp.toPx())
+                                )
+                                val measuredComp = textMeasurer.measure(comp.label, compLabelStyle)
+                                val labelX = (cx - measuredComp.size.width / 2f)
+                                    .coerceIn(0f, (size.width - measuredComp.size.width).coerceAtLeast(0f))
+                                val labelY = (cy + compRadius + 2.dp.toPx())
+                                    .coerceIn(0f, (size.height - measuredComp.size.height).coerceAtLeast(0f))
+                                drawText(textMeasurer = textMeasurer, text = comp.label, topLeft = Offset(labelX, labelY), style = compLabelStyle)
+                            }
+                        }
                     }
                 }
                 } // end flip Box

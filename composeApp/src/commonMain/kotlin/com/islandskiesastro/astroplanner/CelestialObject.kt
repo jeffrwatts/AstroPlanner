@@ -20,3 +20,13 @@ data class CelestialObject(
     val variableEpochJd: Double? = null,
     val variableEpochType: String? = null
 )
+
+data class ComparisonStar(
+    val id: Long,
+    val variableStarObjectId: String,
+    val auid: String,
+    val ra: Double,
+    val dec: Double,
+    val label: String,
+    val mag: Double?
+)
