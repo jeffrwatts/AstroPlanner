@@ -51,7 +51,9 @@ private fun FirstRunSetup(
 
     LaunchedEffect(Unit) {
         repository.updateCatalog { msg -> statusMessage = msg }
-        repository.updateImages { msg -> statusMessage = msg }
+        repository.updateVariableStars { msg -> statusMessage = msg }
+        repository.updateAllComparisonStars { msg -> statusMessage = msg }
+        // Image fetching is disabled on startup for now — run it from the Update page instead.
         onComplete()
     }
 
