@@ -298,8 +298,12 @@ internal fun FieldOfViewScreen(
                     // Mark the variable star's actual sky position. The image can be
                     // panned/rotated/resized independently (via drag or "Update"), so this
                     // is recomputed from displayedCenter*/displayedRotation every draw —
-                    // it never assumes the star is still centered.
-                    if (displayedImageSize > 0.0) {
+                    // it never assumes the star is still centered. Only meaningful for
+                    // variable stars/standard fields — other object types fill the frame
+                    // by design, so a target marker would just be clutter.
+                    val isVariableOrStandardField = skyObj.obj.type == ObjectType.VARIABLE_STAR ||
+                        skyObj.obj.type == ObjectType.STANDARD_FIELD
+                    if (isVariableOrStandardField && displayedImageSize > 0.0) {
                         val markerOffset = skyToCanvasOffset(
                             targetRa      = skyObj.obj.ra,
                             targetDec     = skyObj.obj.dec,

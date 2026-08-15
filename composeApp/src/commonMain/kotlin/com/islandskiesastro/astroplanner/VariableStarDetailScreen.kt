@@ -66,6 +66,7 @@ internal fun VariableStarDetailScreen(
     }
 
     val obj = skyObj.obj
+    val isStandardField = obj.type == ObjectType.STANDARD_FIELD
     val twilightTimes = remember(location?.latitude, location?.longitude, observingD) {
         if (location != null)
             AstronomyService.getAstronomicalTwilightTimesForD(location.latitude, location.longitude, observingD)
@@ -102,16 +103,18 @@ internal fun VariableStarDetailScreen(
         if (!obj.subType.isNullOrBlank()) {
             Text("Variable Type: ${obj.subType}", style = MaterialTheme.typography.bodyMedium)
         }
-        obj.variablePeriodDays?.let { period ->
-            val periodText = if (period < 1.0) {
-                val totalMinutes = (period * 24 * 60).toInt()
-                val h = totalMinutes / 60
-                val m = totalMinutes % 60
-                "$period d (${h}h ${m}m)"
-            } else {
-                "$period d"
+        if (!isStandardField) {
+            obj.variablePeriodDays?.let { period ->
+                val periodText = if (period < 1.0) {
+                    val totalMinutes = (period * 24 * 60).toInt()
+                    val h = totalMinutes / 60
+                    val m = totalMinutes % 60
+                    "$period d (${h}h ${m}m)"
+                } else {
+                    "$period d"
+                }
+                Text("Period: $periodText", style = MaterialTheme.typography.bodyMedium)
             }
-            Text("Period: $periodText", style = MaterialTheme.typography.bodyMedium)
         }
         if (!obj.constellation.isNullOrBlank()) {
             Text(
@@ -153,6 +156,13 @@ internal fun VariableStarDetailScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                comp.bands?.let { bands ->
+                                    Text(
+                                        bands.entries.joinToString("   ") { (band, mag) -> "$band: $mag" },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 Spacer(Modifier.height(6.dp))
                             }
                         }
@@ -173,29 +183,31 @@ internal fun VariableStarDetailScreen(
             FilterChip(selected = !isLocal, onClick = { isLocal = false }, label = { Text("UTC") })
         }
 
-        Spacer(Modifier.height(10.dp))
-        Text("Predicted $eventLabel Times", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(6.dp))
+        if (!isStandardField) {
+            Spacer(Modifier.height(10.dp))
+            Text("Predicted $eventLabel Times", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(6.dp))
 
-        if (windowStartD == null || windowEndD == null) {
-            Text(
-                "No astronomical night at this location/date",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else if (events.isEmpty()) {
-            Text(
-                "No predicted events tonight",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            events.forEach { eventD ->
-                val displayTz = if (isLocal) timeZone else TimeZone.UTC
+            if (windowStartD == null || windowEndD == null) {
                 Text(
-                    "$eventLabel: ${AstronomyService.dToVsxDateTimeString(eventD, displayTz)}${if (!isLocal) " UTC" else ""}",
-                    style = MaterialTheme.typography.bodyMedium
+                    "No astronomical night at this location/date",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            } else if (events.isEmpty()) {
+                Text(
+                    "No predicted events tonight",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                events.forEach { eventD ->
+                    val displayTz = if (isLocal) timeZone else TimeZone.UTC
+                    Text(
+                        "$eventLabel: ${AstronomyService.dToVsxDateTimeString(eventD, displayTz)}${if (!isLocal) " UTC" else ""}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
 

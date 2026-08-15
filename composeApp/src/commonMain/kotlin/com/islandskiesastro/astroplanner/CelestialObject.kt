@@ -1,6 +1,6 @@
 package com.islandskiesastro.astroplanner
 
-enum class ObjectType { STAR, GALAXY, NEBULA, CLUSTER, PLANET, VARIABLE_STAR, UNKNOWN }
+enum class ObjectType { STAR, GALAXY, NEBULA, CLUSTER, PLANET, VARIABLE_STAR, STANDARD_FIELD, UNKNOWN }
 
 data class CelestialObject(
     val id: Long,
@@ -28,5 +28,6 @@ data class ComparisonStar(
     val ra: Double,
     val dec: Double,
     val label: String,
-    val mag: Double?
+    val mag: Double?,
+    val bands: Map<String, Double>? = null
 )

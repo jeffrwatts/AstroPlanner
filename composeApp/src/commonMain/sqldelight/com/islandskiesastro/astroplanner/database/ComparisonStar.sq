@@ -5,7 +5,8 @@ CREATE TABLE comparisonStar (
     ra                   REAL    NOT NULL,
     dec                  REAL    NOT NULL,
     label                TEXT    NOT NULL,
-    mag                  REAL
+    mag                  REAL,
+    bandsJson            TEXT
 );
 
 selectByObjectId:
@@ -15,5 +16,5 @@ deleteByObjectId:
 DELETE FROM comparisonStar WHERE variableStarObjectId = ?;
 
 insert:
-INSERT INTO comparisonStar(variableStarObjectId, auid, ra, dec, label, mag)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO comparisonStar(variableStarObjectId, auid, ra, dec, label, mag, bandsJson)
+VALUES (?, ?, ?, ?, ?, ?, ?);

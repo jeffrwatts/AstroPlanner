@@ -1,0 +1,1 @@
+ALTER TABLE comparisonStar ADD COLUMN bandsJson TEXT;

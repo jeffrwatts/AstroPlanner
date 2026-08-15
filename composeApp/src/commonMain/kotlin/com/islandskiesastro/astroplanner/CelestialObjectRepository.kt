@@ -14,6 +14,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -50,14 +51,15 @@ data class DsoResponse(
 data class VsResponse(
     val displayName: String,
     val objectId: String,
+    val type: String,
     val ra: Double,
     val dec: Double,
-    val subType: String,
+    val subType: String? = null,
     val constellation: String? = null,
     val magnitude: Double? = null,
-    val variablePeriodDays: Double,
-    val variableEpochJd: Double,
-    val variableEpochType: String
+    val variablePeriodDays: Double? = null,
+    val variableEpochJd: Double? = null,
+    val variableEpochType: String? = null
 )
 
 @Serializable
@@ -72,7 +74,8 @@ data class CompStarResponse(
     val ra: Double,
     val dec: Double,
     val label: String,
-    val mag: Double? = null
+    val mag: Double? = null,
+    val bands: Map<String, Double>? = null
 )
 
 class CelestialObjectRepository(
@@ -284,12 +287,17 @@ class CelestialObjectRepository(
             val vsList: List<VsResponse> = json.decodeFromString(responseText)
             onStatus("Variable star data loaded — ${vsList.size} objects")
             vsList.forEach { vs ->
+                val objectType = when (vs.type) {
+                    "variable" -> ObjectType.VARIABLE_STAR
+                    "standard_field" -> ObjectType.STANDARD_FIELD
+                    else -> null
+                } ?: return@forEach
                 queries.insert(
                     displayName = vs.displayName,
                     objectId = vs.objectId,
                     ra = vs.ra * 15.0,  // endpoint returns RA in hours; DB stores degrees
                     dec = vs.dec,
-                    type = ObjectType.VARIABLE_STAR.name,
+                    type = objectType.name,
                     subType = vs.subType,
                     constellation = vs.constellation,
                     recommended = 0L,
@@ -313,7 +321,8 @@ class CelestialObjectRepository(
         ra = ra,
         dec = dec,
         label = label,
-        mag = mag
+        mag = mag,
+        bands = bandsJson?.let { json.decodeFromString<Map<String, Double>>(it) }
     )
 
     // Comparison stars are fetched lazily, per variable star, on first request — there's
@@ -335,7 +344,8 @@ class CelestialObjectRepository(
                     ra    = comp.ra * 15.0,  // endpoint returns RA in hours; DB stores degrees
                     dec   = comp.dec,
                     label = comp.label,
-                    mag   = comp.mag
+                    mag   = comp.mag,
+                    bandsJson = comp.bands?.let { json.encodeToString(it) }
                 )
             }
             compStarQueries.selectByObjectId(objectId).executeAsList().map { it.toDomain() }
@@ -346,7 +356,7 @@ class CelestialObjectRepository(
 
     suspend fun updateAllComparisonStars(onStatus: (String) -> Unit) {
         val variableStars = queries.selectAll().executeAsList()
-            .filter { it.type == ObjectType.VARIABLE_STAR.name }
+            .filter { it.type == ObjectType.VARIABLE_STAR.name || it.type == ObjectType.STANDARD_FIELD.name }
         onStatus("Fetching comparison stars for ${variableStars.size} variable stars...")
         var fetched = 0
         variableStars.forEachIndexed { index, star ->
@@ -363,7 +373,8 @@ class CelestialObjectRepository(
                         ra    = comp.ra * 15.0,
                         dec   = comp.dec,
                         label = comp.label,
-                        mag   = comp.mag
+                        mag   = comp.mag,
+                        bandsJson = comp.bands?.let { json.encodeToString(it) }
                     )
                 }
                 fetched++

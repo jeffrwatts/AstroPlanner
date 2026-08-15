@@ -166,7 +166,7 @@ fun SkyPlannerScreen(
         val objects = when (objectFilter) {
             ObjectFilter.RECOMMENDED -> repository.getRecommendedObjects()
             ObjectFilter.ALL         -> repository.getAllObjects()
-            ObjectFilter.VARIABLES   -> repository.getAllObjects().filter { it.type == ObjectType.VARIABLE_STAR }
+            ObjectFilter.VARIABLES   -> repository.getAllObjects().filter { it.type == ObjectType.VARIABLE_STAR || it.type == ObjectType.STANDARD_FIELD }
         }
         val lat = location?.latitude ?: 0.0
         val lon = location?.longitude ?: 0.0
@@ -190,7 +190,7 @@ fun SkyPlannerScreen(
     LaunchedEffect(objectFilter, observingD) { loadObjects() }
 
     if (selectedObject != null) {
-        if (selectedObject!!.first.obj.type == ObjectType.VARIABLE_STAR) {
+        if (selectedObject!!.first.obj.type == ObjectType.VARIABLE_STAR || selectedObject!!.first.obj.type == ObjectType.STANDARD_FIELD) {
             VariableStarDetailScreen(
                 skyObj                    = selectedObject!!.first,
                 location                  = location,
