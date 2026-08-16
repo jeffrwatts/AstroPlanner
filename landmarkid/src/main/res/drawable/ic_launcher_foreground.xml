@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer compass ring -->
+    <path
+        android:pathData="M54,20 A34,34 0 1,1 53.9,20 Z"
+        android:strokeColor="#FFC107"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"/>
+    <!-- Compass needle -->
+    <path
+        android:pathData="M54,26 L61,54 L54,82 L47,54 Z"
+        android:fillColor="#FFC107"/>
+    <!-- Center hub -->
+    <path
+        android:pathData="M54,49 A5,5 0 1,1 53.9,49 Z"
+        android:fillColor="#FFFFFF"/>
+</vector>
