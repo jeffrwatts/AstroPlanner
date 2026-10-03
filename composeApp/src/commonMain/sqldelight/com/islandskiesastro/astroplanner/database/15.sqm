@@ -1,0 +1,34 @@
+-- Replace the `recommended` flag with per-list membership (dso.json `lists`) and add
+-- spectroscopy star columns. SQLite on minSdk 24 has no DROP COLUMN, so rebuild the table.
+CREATE TABLE celestialObject_new (
+    id              INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    displayName     TEXT    NOT NULL,
+    objectId        TEXT    NOT NULL,
+    ra              REAL    NOT NULL,
+    dec             REAL    NOT NULL,
+    type            TEXT    NOT NULL,
+    subType         TEXT,
+    constellation   TEXT,
+    magnitude       REAL,
+    angularSizeMajor REAL,
+    angularSizeMinor REAL,
+    userAdded       INTEGER NOT NULL DEFAULT 0,
+    variablePeriodDays REAL,
+    variableEpochJd REAL,
+    variableEpochType TEXT,
+    inPhotography   INTEGER NOT NULL DEFAULT 0,
+    inSpectroscopy  INTEGER NOT NULL DEFAULT 0,
+    spectralType    TEXT,
+    colorIndexBV    REAL,
+    calibrationStar INTEGER NOT NULL DEFAULT 0,
+    spectralFeatures TEXT
+);
+
+INSERT INTO celestialObject_new (id, displayName, objectId, ra, dec, type, subType, constellation, magnitude, angularSizeMajor, angularSizeMinor, userAdded, variablePeriodDays, variableEpochJd, variableEpochType, inPhotography)
+SELECT id, displayName, objectId, ra, dec, type, subType, constellation, magnitude, angularSizeMajor, angularSizeMinor, userAdded, variablePeriodDays, variableEpochJd, variableEpochType,
+       CASE WHEN type IN ('VARIABLE_STAR', 'STANDARD_FIELD') THEN 0 ELSE recommended END
+FROM celestialObject;
+
+DROP TABLE celestialObject;
+
+ALTER TABLE celestialObject_new RENAME TO celestialObject;

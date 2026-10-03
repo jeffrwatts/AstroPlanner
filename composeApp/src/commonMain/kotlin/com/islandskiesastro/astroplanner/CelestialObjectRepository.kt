@@ -41,7 +41,7 @@ data class DsoResponse(
     val type: String,
     val subType: String? = null,
     val constellation: String? = null,
-    val recommended: Boolean,
+    val lists: List<String>,
     val magnitude: Double? = null,
     val angularSizeMajor: Double? = null,
     val angularSizeMinor: Double? = null
@@ -60,6 +60,22 @@ data class VsResponse(
     val variablePeriodDays: Double? = null,
     val variableEpochJd: Double? = null,
     val variableEpochType: String? = null
+)
+
+@Serializable
+data class SpectroscopyResponse(
+    val objectId: String,
+    val type: String,
+    val displayName: String,
+    val ra: Double,
+    val dec: Double,
+    val subType: String? = null,
+    val spectralType: String? = null,
+    val constellation: String? = null,
+    val magnitude: Double? = null,
+    val colorIndexBV: Double? = null,
+    val calibrationStar: Boolean = false,
+    val spectralFeatures: String? = null
 )
 
 @Serializable
@@ -103,8 +119,11 @@ class CelestialObjectRepository(
     fun getAllObjects(): List<CelestialObject> =
         queries.selectAll().executeAsList().map { it.toDomain() }
 
-    fun getRecommendedObjects(): List<CelestialObject> =
-        queries.selectRecommended().executeAsList().map { it.toDomain() }
+    fun getPhotographyObjects(): List<CelestialObject> =
+        queries.selectPhotography().executeAsList().map { it.toDomain() }
+
+    fun getSpectroscopyObjects(): List<CelestialObject> =
+        queries.selectSpectroscopy().executeAsList().map { it.toDomain() }
 
     fun getImagesMap(): Map<String, CelestialObjectImage> {
         val dir = imageStorage.getDir()
@@ -193,7 +212,8 @@ class CelestialObjectRepository(
             angularSizeMinor = null,
             variablePeriodDays = variablePeriodDays,
             variableEpochJd    = variableEpochJd,
-            variableEpochType  = variableEpochType
+            variableEpochType  = variableEpochType,
+            inPhotography      = userObjectInPhotography(type)
         )
     }
 
@@ -225,93 +245,155 @@ class CelestialObjectRepository(
             variablePeriodDays = variablePeriodDays,
             variableEpochJd    = variableEpochJd,
             variableEpochType  = variableEpochType,
+            inPhotography      = userObjectInPhotography(type),
             id          = id
         )
     }
 
+    // User-added variable stars belong under the Variables filter (matched by type);
+    // everything else the user adds is treated as a photography target.
+    private fun userObjectInPhotography(type: ObjectType): Long =
+        if (type == ObjectType.VARIABLE_STAR || type == ObjectType.STANDARD_FIELD) 0L else 1L
+
+    // Refreshes every system (userAdded = 0) row from the DSO, variable star and spectroscopy
+    // feeds. All three are fetched before the database is touched, so a failed fetch leaves
+    // the existing catalog in place rather than half-replaced.
     suspend fun updateCatalog(onStatus: (String) -> Unit) {
-        onStatus("Inserting planets...")
-        queries.deleteSystemObjects()
-        planets.forEach { name ->
-            queries.insert(
-                displayName = name.replaceFirstChar { it.uppercase() },
-                objectId = name,
-                ra = 0.0,
-                dec = 0.0,
-                type = ObjectType.PLANET.name,
-                subType = null,
-                constellation = "",
-                recommended = 1L,
-                magnitude = null,
-                angularSizeMajor = null,
-                angularSizeMinor = null,
-                variablePeriodDays = null,
-                variableEpochJd = null,
-                variableEpochType = null
-            )
+        val dsoList: List<DsoResponse>
+        val vsList: List<VsResponse>
+        val spectroscopyList: List<SpectroscopyResponse>
+        try {
+            onStatus("Fetching DSO data...")
+            dsoList = json.decodeFromString(fetchFeed(Config.DSO_URL))
+            onStatus("Fetching variable star data...")
+            vsList = json.decodeFromString(fetchFeed(Config.VS_URL))
+            onStatus("Fetching spectroscopy data...")
+            spectroscopyList = json.decodeFromString(fetchFeed(Config.SPECTROSCOPY_URL))
+        } catch (e: Exception) {
+            onStatus("Catalog update failed: ${e.message}")
+            return
         }
 
-        onStatus("Fetching DSO data...")
-        try {
-            val responseText = client.get("${Config.DSO_URL}?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}").bodyAsText()
-            val dsoList: List<DsoResponse> = json.decodeFromString(responseText)
-            onStatus("DSO data loaded — ${dsoList.size} objects")
+        onStatus("Saving catalog...")
+        queries.transaction {
+            queries.deleteSystemObjects()
+            planets.forEach { name ->
+                insertSystemObject(
+                    displayName = name.replaceFirstChar { it.uppercase() },
+                    objectId = name,
+                    ra = 0.0,
+                    dec = 0.0,
+                    type = ObjectType.PLANET,
+                    constellation = "",
+                    inPhotography = true
+                )
+            }
             dsoList.forEach { dso ->
-                queries.insert(
+                insertSystemObject(
                     displayName = dso.displayName,
                     objectId = dso.objectId,
                     ra = dso.ra * 15.0,  // endpoint returns RA in hours; DB stores degrees
                     dec = dso.dec,
-                    type = dsoTypeToObjectType(dso.type).name,
+                    type = dsoTypeToObjectType(dso.type),
                     subType = dso.subType,
                     constellation = dso.constellation,
-                    recommended = if (dso.recommended) 1L else 0L,
                     magnitude = dso.magnitude,
                     angularSizeMajor = dso.angularSizeMajor,
                     angularSizeMinor = dso.angularSizeMinor,
-                    variablePeriodDays = null,
-                    variableEpochJd = null,
-                    variableEpochType = null
+                    inPhotography = "photography" in dso.lists,
+                    inSpectroscopy = "spectroscopy" in dso.lists
                 )
             }
-        } catch (e: Exception) {
-            onStatus("DSO data loading failed: ${e.message}")
-        }
-    }
-
-    suspend fun updateVariableStars(onStatus: (String) -> Unit) {
-        onStatus("Fetching variable star data...")
-        try {
-            queries.deleteSystemVariableStars()
-            val responseText = client.get("${Config.VS_URL}?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}").bodyAsText()
-            val vsList: List<VsResponse> = json.decodeFromString(responseText)
-            onStatus("Variable star data loaded — ${vsList.size} objects")
             vsList.forEach { vs ->
                 val objectType = when (vs.type) {
                     "variable" -> ObjectType.VARIABLE_STAR
                     "standard_field" -> ObjectType.STANDARD_FIELD
                     else -> null
                 } ?: return@forEach
-                queries.insert(
+                insertSystemObject(
                     displayName = vs.displayName,
                     objectId = vs.objectId,
-                    ra = vs.ra * 15.0,  // endpoint returns RA in hours; DB stores degrees
+                    ra = vs.ra * 15.0,
                     dec = vs.dec,
-                    type = objectType.name,
+                    type = objectType,
                     subType = vs.subType,
                     constellation = vs.constellation,
-                    recommended = 0L,
                     magnitude = vs.magnitude,
-                    angularSizeMajor = null,
-                    angularSizeMinor = null,
                     variablePeriodDays = vs.variablePeriodDays,
                     variableEpochJd = vs.variableEpochJd,
                     variableEpochType = vs.variableEpochType
                 )
             }
-        } catch (e: Exception) {
-            onStatus("Variable star data loading failed: ${e.message}")
+            spectroscopyList.forEach { star ->
+                if (star.type != "star") return@forEach
+                insertSystemObject(
+                    displayName = star.displayName,
+                    objectId = star.objectId,
+                    ra = star.ra * 15.0,
+                    dec = star.dec,
+                    type = ObjectType.SPECTROSCOPY_STAR,
+                    subType = star.subType,
+                    constellation = star.constellation,
+                    magnitude = star.magnitude,
+                    inSpectroscopy = true,
+                    spectralType = star.spectralType,
+                    colorIndexBV = star.colorIndexBV,
+                    calibrationStar = star.calibrationStar,
+                    spectralFeatures = star.spectralFeatures
+                )
+            }
         }
+        onStatus("Catalog updated — ${dsoList.size} DSOs, ${vsList.size} variable stars, ${spectroscopyList.size} spectroscopy stars")
+    }
+
+    private suspend fun fetchFeed(url: String): String {
+        val response = client.get("$url?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}")
+        if (response.status != HttpStatusCode.OK) throw Exception("$url returned ${response.status}")
+        return response.bodyAsText()
+    }
+
+    private fun insertSystemObject(
+        displayName: String,
+        objectId: String,
+        ra: Double,
+        dec: Double,
+        type: ObjectType,
+        subType: String? = null,
+        constellation: String? = null,
+        magnitude: Double? = null,
+        angularSizeMajor: Double? = null,
+        angularSizeMinor: Double? = null,
+        variablePeriodDays: Double? = null,
+        variableEpochJd: Double? = null,
+        variableEpochType: String? = null,
+        inPhotography: Boolean = false,
+        inSpectroscopy: Boolean = false,
+        spectralType: String? = null,
+        colorIndexBV: Double? = null,
+        calibrationStar: Boolean = false,
+        spectralFeatures: String? = null
+    ) {
+        queries.insert(
+            displayName = displayName,
+            objectId = objectId,
+            ra = ra,
+            dec = dec,
+            type = type.name,
+            subType = subType,
+            constellation = constellation,
+            magnitude = magnitude,
+            angularSizeMajor = angularSizeMajor,
+            angularSizeMinor = angularSizeMinor,
+            variablePeriodDays = variablePeriodDays,
+            variableEpochJd = variableEpochJd,
+            variableEpochType = variableEpochType,
+            inPhotography = if (inPhotography) 1L else 0L,
+            inSpectroscopy = if (inSpectroscopy) 1L else 0L,
+            spectralType = spectralType,
+            colorIndexBV = colorIndexBV,
+            calibrationStar = if (calibrationStar) 1L else 0L,
+            spectralFeatures = spectralFeatures
+        )
     }
 
     private fun DbCompStarRow.toDomain() = ComparisonStar(
@@ -459,13 +541,18 @@ class CelestialObjectRepository(
         type = ObjectType.entries.find { it.name == type } ?: ObjectType.UNKNOWN,
         subType = subType,
         constellation = constellation,
-        recommended = recommended != 0L,
         magnitude = magnitude,
         angularSizeMajor = angularSizeMajor,
         angularSizeMinor = angularSizeMinor,
         userAdded = userAdded != 0L,
         variablePeriodDays = variablePeriodDays,
         variableEpochJd = variableEpochJd,
-        variableEpochType = variableEpochType
+        variableEpochType = variableEpochType,
+        inPhotography = inPhotography != 0L,
+        inSpectroscopy = inSpectroscopy != 0L,
+        spectralType = spectralType,
+        colorIndexBV = colorIndexBV,
+        calibrationStar = calibrationStar != 0L,
+        spectralFeatures = spectralFeatures
     )
 }

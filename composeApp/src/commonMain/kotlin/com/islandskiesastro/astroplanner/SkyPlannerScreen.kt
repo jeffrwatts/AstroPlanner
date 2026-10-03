@@ -3,6 +3,8 @@ package com.islandskiesastro.astroplanner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,7 +74,7 @@ private data class MoonInfo(
     val isWaxing: Boolean
 )
 
-private enum class ObjectFilter { RECOMMENDED, ALL, VARIABLES }
+private enum class ObjectFilter { PHOTOGRAPHY, VARIABLES, SPECTROSCOPY }
 
 internal data class SkyObject(
     val obj: CelestialObject,
@@ -95,7 +97,7 @@ fun SkyPlannerScreen(
     onTitleChanged: (String?) -> Unit = {},
     timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) {
-    var objectFilter by remember { mutableStateOf(ObjectFilter.RECOMMENDED) }
+    var objectFilter by remember { mutableStateOf(ObjectFilter.PHOTOGRAPHY) }
     var searchQuery by remember { mutableStateOf("") }
     var skyObjects by remember { mutableStateOf<List<SkyObject>>(emptyList()) }
     var imagesMap by remember { mutableStateOf<Map<String, CelestialObjectImage>>(emptyMap()) }
@@ -164,9 +166,9 @@ fun SkyPlannerScreen(
 
     fun loadObjects() {
         val objects = when (objectFilter) {
-            ObjectFilter.RECOMMENDED -> repository.getRecommendedObjects()
-            ObjectFilter.ALL         -> repository.getAllObjects()
-            ObjectFilter.VARIABLES   -> repository.getAllObjects().filter { it.type == ObjectType.VARIABLE_STAR || it.type == ObjectType.STANDARD_FIELD }
+            ObjectFilter.PHOTOGRAPHY  -> repository.getPhotographyObjects()
+            ObjectFilter.VARIABLES    -> repository.getAllObjects().filter { it.type == ObjectType.VARIABLE_STAR || it.type == ObjectType.STANDARD_FIELD }
+            ObjectFilter.SPECTROSCOPY -> repository.getSpectroscopyObjects()
         }
         val lat = location?.latitude ?: 0.0
         val lon = location?.longitude ?: 0.0
@@ -375,24 +377,25 @@ fun SkyPlannerScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
-                selected = objectFilter == ObjectFilter.RECOMMENDED,
-                onClick  = { objectFilter = ObjectFilter.RECOMMENDED },
-                label    = { Text("Recommended") }
-            )
-            FilterChip(
-                selected = objectFilter == ObjectFilter.ALL,
-                onClick  = { objectFilter = ObjectFilter.ALL },
-                label    = { Text("All") }
+                selected = objectFilter == ObjectFilter.PHOTOGRAPHY,
+                onClick  = { objectFilter = ObjectFilter.PHOTOGRAPHY },
+                label    = { Text("Photography") }
             )
             FilterChip(
                 selected = objectFilter == ObjectFilter.VARIABLES,
                 onClick  = { objectFilter = ObjectFilter.VARIABLES },
                 label    = { Text("Variables") }
+            )
+            FilterChip(
+                selected = objectFilter == ObjectFilter.SPECTROSCOPY,
+                onClick  = { objectFilter = ObjectFilter.SPECTROSCOPY },
+                label    = { Text("Spectroscopy") }
             )
         }
 
@@ -484,7 +487,7 @@ private fun SkyObjectItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(skyObj.obj.displayName, style = MaterialTheme.typography.titleMedium)
             Text(
-                skyObj.obj.objectId,
+                skyObj.obj.objectId + (skyObj.obj.spectralType?.let { "  ·  $it" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

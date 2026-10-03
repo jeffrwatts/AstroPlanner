@@ -167,9 +167,10 @@ internal fun DetailScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(2.dp))
-            val typeStr = skyObj.obj.type.name.lowercase()
-                .replaceFirstChar { it.uppercase() } +
-                (skyObj.obj.subType?.let { " / $it" } ?: "")
+            val isSpectroscopyStar = skyObj.obj.type == ObjectType.SPECTROSCOPY_STAR
+            val typeName = if (isSpectroscopyStar) "Star"
+                else skyObj.obj.type.name.lowercase().replaceFirstChar { it.uppercase() }
+            val typeStr = typeName + (skyObj.obj.subType?.let { " / $it" } ?: "")
             Text(typeStr, style = MaterialTheme.typography.bodyMedium)
             if (!skyObj.obj.constellation.isNullOrBlank()) {
                 Text(
@@ -177,6 +178,31 @@ internal fun DetailScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            if (isSpectroscopyStar) {
+                val details = listOfNotNull(
+                    skyObj.obj.spectralType?.let { "Spectral type: $it" },
+                    skyObj.obj.magnitude?.let { "V: $it" },
+                    skyObj.obj.colorIndexBV?.let { "B−V: $it" }
+                ).joinToString("   ")
+                if (details.isNotEmpty()) {
+                    Text(
+                        details,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (skyObj.obj.calibrationStar) {
+                    Text(
+                        "Calibration star (instrument response reference)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                skyObj.obj.spectralFeatures?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             Spacer(Modifier.height(10.dp))

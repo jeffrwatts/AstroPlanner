@@ -7,32 +7,40 @@ CREATE TABLE celestialObject (
     type            TEXT    NOT NULL,
     subType         TEXT,
     constellation   TEXT,
-    recommended     INTEGER NOT NULL DEFAULT 1,
     magnitude       REAL,
     angularSizeMajor REAL,
     angularSizeMinor REAL,
     userAdded       INTEGER NOT NULL DEFAULT 0,
     variablePeriodDays REAL,
     variableEpochJd REAL,
-    variableEpochType TEXT
+    variableEpochType TEXT,
+    inPhotography   INTEGER NOT NULL DEFAULT 0,
+    inSpectroscopy  INTEGER NOT NULL DEFAULT 0,
+    spectralType    TEXT,
+    colorIndexBV    REAL,
+    calibrationStar INTEGER NOT NULL DEFAULT 0,
+    spectralFeatures TEXT
 );
 
 selectAll:
 SELECT * FROM celestialObject ORDER BY id;
 
-selectRecommended:
-SELECT * FROM celestialObject WHERE recommended = 1 ORDER BY id;
+selectPhotography:
+SELECT * FROM celestialObject WHERE inPhotography = 1 ORDER BY id;
+
+selectSpectroscopy:
+SELECT * FROM celestialObject WHERE inSpectroscopy = 1 ORDER BY id;
 
 selectByObjectId:
 SELECT * FROM celestialObject WHERE objectId = ?;
 
 insert:
-INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor, variablePeriodDays, variableEpochJd, variableEpochType)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, magnitude, angularSizeMajor, angularSizeMinor, variablePeriodDays, variableEpochJd, variableEpochType, inPhotography, inSpectroscopy, spectralType, colorIndexBV, calibrationStar, spectralFeatures)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertUserObject:
-INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, recommended, magnitude, angularSizeMajor, angularSizeMinor, userAdded, variablePeriodDays, variableEpochJd, variableEpochType)
-VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1, ?, ?, ?);
+INSERT INTO celestialObject (displayName, objectId, ra, dec, type, subType, constellation, magnitude, angularSizeMajor, angularSizeMinor, userAdded, variablePeriodDays, variableEpochJd, variableEpochType, inPhotography)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?);
 
 deleteAll:
 DELETE FROM celestialObject;
@@ -40,13 +48,10 @@ DELETE FROM celestialObject;
 deleteSystemObjects:
 DELETE FROM celestialObject WHERE userAdded = 0;
 
-deleteSystemVariableStars:
-DELETE FROM celestialObject WHERE userAdded = 0 AND type IN ('VARIABLE_STAR', 'STANDARD_FIELD');
-
 deleteById:
 DELETE FROM celestialObject WHERE id = ?;
 
 updateUserObject:
 UPDATE celestialObject
-SET displayName = ?, ra = ?, dec = ?, type = ?, magnitude = ?, subType = ?, constellation = ?, variablePeriodDays = ?, variableEpochJd = ?, variableEpochType = ?
+SET displayName = ?, ra = ?, dec = ?, type = ?, magnitude = ?, subType = ?, constellation = ?, variablePeriodDays = ?, variableEpochJd = ?, variableEpochType = ?, inPhotography = ?
 WHERE id = ? AND userAdded = 1;

@@ -30,13 +30,9 @@ fun UpdateScreen(
 ) {
     var showAddObject by remember { mutableStateOf(false) }
 
-    var dsoRunning by remember { mutableStateOf(false) }
-    var dsoStatus by remember { mutableStateOf("") }
-    var dsoError by remember { mutableStateOf(false) }
-
-    var vsRunning by remember { mutableStateOf(false) }
-    var vsStatus by remember { mutableStateOf("") }
-    var vsError by remember { mutableStateOf(false) }
+    var catalogRunning by remember { mutableStateOf(false) }
+    var catalogStatus by remember { mutableStateOf("") }
+    var catalogError by remember { mutableStateOf(false) }
 
     var imgRunning by remember { mutableStateOf(false) }
     var imgStatus by remember { mutableStateOf("") }
@@ -79,56 +75,27 @@ fun UpdateScreen(
 
         Button(
             onClick = {
-                dsoRunning = true
-                dsoError = false
+                catalogRunning = true
+                catalogError = false
                 scope.launch {
                     repository.updateCatalog { status ->
-                        dsoStatus = status
-                        dsoError = status.startsWith("DSO data loading failed")
+                        catalogStatus = status
+                        catalogError = status.startsWith("Catalog update failed")
                     }
-                    dsoRunning = false
+                    catalogRunning = false
                 }
             },
-            enabled = !dsoRunning
+            enabled = !catalogRunning
         ) {
-            Text("Update DSO")
+            Text("Update Catalog")
         }
 
-        if (dsoStatus.isNotEmpty()) {
+        if (catalogStatus.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "DSO: $dsoStatus",
+                text = "Catalog: $catalogStatus",
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (dsoError) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        Button(
-            onClick = {
-                vsRunning = true
-                vsError = false
-                scope.launch {
-                    repository.updateVariableStars { status ->
-                        vsStatus = status
-                        vsError = status.startsWith("Variable star data loading failed")
-                    }
-                    vsRunning = false
-                }
-            },
-            enabled = !vsRunning
-        ) {
-            Text("Update Variable Stars")
-        }
-
-        if (vsStatus.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Variable Stars: $vsStatus",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (vsError) MaterialTheme.colorScheme.error
+                color = if (catalogError) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurface
             )
         }

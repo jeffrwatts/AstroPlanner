@@ -96,7 +96,6 @@ fun AddObjectScreen(
                 type = selectedType,
                 subType = null,
                 constellation = null,
-                recommended = true,
                 magnitude = null,
                 angularSizeMajor = null,
                 angularSizeMinor = null,
