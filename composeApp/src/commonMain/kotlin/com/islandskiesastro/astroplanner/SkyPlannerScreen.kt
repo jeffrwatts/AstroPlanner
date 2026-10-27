@@ -27,11 +27,14 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -104,6 +107,7 @@ fun SkyPlannerScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     val refreshScope = rememberCoroutineScope()
     var selectedObject by remember { mutableStateOf<Pair<SkyObject, CelestialObjectImage?>?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     var observingD by remember { mutableStateOf<Double?>(null) }
     var sliderTwilightTimes by remember { mutableStateOf<Pair<Double, Double>?>(null) }
@@ -230,6 +234,17 @@ fun SkyPlannerScreen(
         return
     }
 
+    if (showDatePicker) {
+        DateJumpPicker(
+            currentD  = currentD,
+            onConfirm = { ms ->
+                observingD = ms / 86_400_000.0 - 10957.5 + 0.5
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // ── Session card ──────────────────────────────────────────────────────
         val times       = sliderTwilightTimes
@@ -260,7 +275,7 @@ fun SkyPlannerScreen(
                     }
                     Text(
                         AstronomyService.dToLocalDateString(currentD, timeZone),
-                        modifier  = Modifier.weight(1f),
+                        modifier  = Modifier.weight(1f).clickable { showDatePicker = true },
                         textAlign = TextAlign.Center,
                         style     = MaterialTheme.typography.titleSmall
                     )
@@ -572,3 +587,24 @@ private fun MoonPhaseIcon(illumination: Float, isWaxing: Boolean, modifier: Modi
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateJumpPicker(
+    currentD: Double,
+    onConfirm: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val initialMs = ((currentD + 10957.5) * 86_400_000.0).toLong()
+    val state = rememberDatePickerState(initialSelectedDateMillis = initialMs)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { state.selectedDateMillis?.let(onConfirm) ?: onDismiss() }) {
+                Text("OK")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    ) {
+        DatePicker(state = state)
+    }
+}
