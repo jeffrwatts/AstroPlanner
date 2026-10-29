@@ -81,6 +81,7 @@ data class SpectroscopyResponse(
 @Serializable
 data class ImageResponse(
     val objectId: String? = null,
+    val region: String? = null,
     val cloudinaryId: String
 )
 
@@ -474,9 +475,11 @@ class CelestialObjectRepository(
             val responseText = client.get("${Config.IMAGES_URL}?t=${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}").bodyAsText()
             val imageList: List<ImageResponse> = json.decodeFromString(responseText)
             // Normalize catalogId to match DSO objectId format (e.g. "IC 1805" → "ic1805")
-            // deduplicate so only the first image per object is used
+            // deduplicate so only one image per object is used: the first full-object image
+            // (no region), else the first region crop (e.g. full NGC 7000 over the Cygnus Wall)
             val seenIds = mutableSetOf<String>()
             val withCatalogId = imageList
+                .sortedBy { it.region != null }
                 .mapNotNull { img ->
                     val id = img.objectId ?: return@mapNotNull null
                     if (seenIds.add(id)) img.copy(objectId = id) else null
