@@ -7,5 +7,5 @@ object Config {
     const val COMP_STARS_BASE_URL = "https://jeffrwatts.github.io/AstroPlannerData/mobile/comp_stars/"
     const val IMAGES_URL = "https://res.cloudinary.com/jeffrwatts/raw/upload/island-skies-astro/images.json"
     const val CLOUDINARY_BASE = "https://res.cloudinary.com/jeffrwatts/image/upload"
-    const val SIMBAD_TAP_URL = "https://simbad.u-strasbg.fr/simbad/sim-tap/sync"
+    const val SIMBAD_TAP_URL = "https://simbad.harvard.edu/simbad/sim-tap/sync"  // CDS Strasbourg down; mirror of the same database
 }
